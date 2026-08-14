@@ -89,8 +89,9 @@ class Recipe:
     exposure_passes: int
     learning_rate: float
     rounds: int
-    # Declared trainable surface; the reduced last_two_blocks_and_head arm
-    # leaves trunk.inp frozen alongside the condition encoders.
+    # Declared trainable surface; the narrowed scopes leave trunk.inp (and,
+    # for last_block_and_head, blocks[0]) frozen alongside the condition
+    # encoders.
     optimizer_scope: str = "trunk_and_head"
     replay: str = (
         "E complete reshuffled passes over D+ per round, no oversampling, "
@@ -120,6 +121,27 @@ def declared_recipes_v2() -> tuple[Recipe, ...]:
         )
         for scope, suffix in (
             ("trunk_and_head", ""), ("last_two_blocks_and_head", "R"),
+        )
+        for exposure in SWEEP_EXPOSURE_PASSES
+    )
+
+
+def declared_recipes_v3() -> tuple[Recipe, ...]:
+    """The re-amended sweep space: the E sweep crossed with the two retained
+    trainable surfaces.  ``E{n}`` arms train the full ``trunk_and_head``
+    surface (327,956 params); ``E{n}L`` arms train the minimal
+    ``last_block_and_head`` surface (blocks[1] + head, 137,236 params, with
+    trunk.inp and blocks[0] frozen).  The v2 ``E{n}R``
+    ``last_two_blocks_and_head`` arms are dropped by this amendment (the
+    scope itself stays supported for the recorded v2 artifacts)."""
+    return tuple(
+        Recipe(
+            f"E{exposure}{suffix}", SWEEP_ALPHA, exposure,
+            SWEEP_LEARNING_RATE, SWEEP_ROUNDS, optimizer_scope=scope,
+        )
+        for scope, suffix in (
+            ("trunk_and_head", ""),
+            ("last_block_and_head", "L"),
         )
         for exposure in SWEEP_EXPOSURE_PASSES
     )
@@ -234,6 +256,55 @@ def write_contract_v2(
     contract["amendment"] = {
         "supersedes": str(amendment_of),
         "supersedes_sha256": sha256_file(amendment_of),
+        "reason": str(reason),
+        "scope": (
+            "recipes only: guards, banks, ranking key, and shortlist size "
+            "are unchanged from the superseded contract"
+        ),
+        "declared_before_confirmation_read": True,
+    }
+    _write_contract_file(path, contract)
+    return contract
+
+
+def write_contract_v3(
+    path: str | Path,
+    *,
+    r0_sha256: str,
+    amendment_of: str | Path,
+    reason: str,
+    sr_guard: float = SR_GUARD,
+    timeout_guard: float = TIMEOUT_GUARD,
+    time_guard_seconds: float = TIME_GUARD_SECONDS,
+) -> dict:
+    """Re-amended contract: the 6-recipe two-surface sweep, guards unchanged.
+
+    v3 both adds the minimal ``last_block_and_head`` arms and removes the v2
+    ``last_two_blocks_and_head`` arms.  Legal only while no
+    shortlist/confirmation bank has been read for the amended recipes; the
+    amendment block records the superseded contract and the reason, extending
+    the v1 -> v2 -> v3 chain so the change is declared, never silent.
+    """
+    path = Path(path).resolve()
+    amendment_of = Path(amendment_of).resolve()
+    if not amendment_of.is_file():
+        raise FileNotFoundError(
+            f"the amended contract must reference the superseded one: "
+            f"{amendment_of}"
+        )
+    superseded = json.loads(amendment_of.read_text())
+    if superseded.get("status") not in {CONTRACT_STATUS, LOCK_STATUS}:
+        raise ValueError("amendment_of is not a declared search contract")
+    if not str(reason).strip():
+        raise ValueError("an amendment requires a recorded reason")
+    contract = _contract_payload(
+        declared_recipes_v3(), r0_sha256=r0_sha256, sr_guard=sr_guard,
+        timeout_guard=timeout_guard, time_guard_seconds=time_guard_seconds,
+    )
+    contract["amendment"] = {
+        "supersedes": str(amendment_of),
+        "supersedes_sha256": sha256_file(amendment_of),
+        "supersedes_amendment": superseded.get("amendment"),
         "reason": str(reason),
         "scope": (
             "recipes only: guards, banks, ranking key, and shortlist size "
@@ -404,6 +475,17 @@ def parser() -> argparse.ArgumentParser:
     declare_v2.add_argument("--r0-sha256", required=True)
     declare_v2.add_argument("--amendment-of", required=True)
     declare_v2.add_argument("--reason", required=True)
+    declare_v3 = sub.add_parser(
+        "declare-v3",
+        help=(
+            "write the re-amended 6-recipe contract (adds last_block_and_head "
+            "arms, drops the v2 last_two_blocks_and_head arms)"
+        ),
+    )
+    declare_v3.add_argument("--contract", required=True)
+    declare_v3.add_argument("--r0-sha256", required=True)
+    declare_v3.add_argument("--amendment-of", required=True)
+    declare_v3.add_argument("--reason", required=True)
     lock = sub.add_parser("lock", help="lock the single M100 winner")
     lock.add_argument("--contract", required=True)
     lock.add_argument("--winner-label", required=True)
@@ -426,8 +508,12 @@ def main(argv=None) -> int:
             "status": contract["status"],
             "recipes": len(contract["recipes"]),
         }, sort_keys=True))
-    elif args.command == "declare-v2":
-        contract = write_contract_v2(
+    elif args.command in {"declare-v2", "declare-v3"}:
+        writer = (
+            write_contract_v2 if args.command == "declare-v2"
+            else write_contract_v3
+        )
+        contract = writer(
             args.contract, r0_sha256=args.r0_sha256,
             amendment_of=args.amendment_of, reason=args.reason,
         )

@@ -14,9 +14,11 @@ receives arbitrary mass through oversampling.
 
 The default trainable surface is the complete flow trunk plus head
 (``trunk.inp + blocks[0] + blocks[1] + head``); the declared reduced arm
-(``last_two_blocks_and_head``) leaves ``trunk.inp`` frozen as well.  Every
-frozen entry — all condition encoders, plus ``trunk.inp`` under the reduced
-scope — has its state digest asserted bitwise before and after each round.
+(``last_two_blocks_and_head``) leaves ``trunk.inp`` frozen as well, and the
+declared minimal arm (``last_block_and_head``) additionally freezes
+``blocks[0]``.  Every frozen entry — all condition encoders, plus each trunk
+layer a narrowed scope excludes — has its state digest asserted bitwise
+before and after each round.
 """
 from __future__ import annotations
 
@@ -64,10 +66,31 @@ REDUCED_TRAINABLE_NAMES = tuple(
     name for name in FROZEN_TRAINABLE_NAMES
     if not name.startswith("policy.trunk.inp.")
 )
+# Declared minimal surface: the last residual block plus head only, leaving
+# trunk.inp and blocks[0] frozen alongside the condition encoders.  The scope
+# name is the frozen adapter's own "last_block_and_head".
+MINIMAL_OPTIMIZER_SCOPE = "last_block_and_head"
+MINIMAL_TRAINABLE_PARAMETER_COUNT = 137_236
+MINIMAL_TRAINABLE_NAMES = tuple(
+    name for name in FROZEN_TRAINABLE_NAMES
+    if name.startswith(("policy.head.", "policy.trunk.blocks.1."))
+)
 DECLARED_TRAINABLE_SURFACES = {
     OPTIMIZER_SCOPE: (FROZEN_TRAINABLE_NAMES, TRAINABLE_PARAMETER_COUNT),
     REDUCED_OPTIMIZER_SCOPE: (
         REDUCED_TRAINABLE_NAMES, REDUCED_TRAINABLE_PARAMETER_COUNT,
+    ),
+    MINIMAL_OPTIMIZER_SCOPE: (
+        MINIMAL_TRAINABLE_NAMES, MINIMAL_TRAINABLE_PARAMETER_COUNT,
+    ),
+}
+# Trunk state each narrowed scope excludes from training and must therefore
+# leave bitwise untouched, digested under its own key.
+_EXCLUDED_TRUNK_PREFIXES = {
+    REDUCED_OPTIMIZER_SCOPE: (("trunk_inp", "trunk.inp."),),
+    MINIMAL_OPTIMIZER_SCOPE: (
+        ("trunk_inp", "trunk.inp."),
+        ("trunk_block_0", "trunk.blocks.0."),
     ),
 }
 NEGATIVE_LOSS_ABORT_FACTOR = 10.0
@@ -91,8 +114,9 @@ class UpdateConfig:
     # inactive, deterministic gradients); pretraining used train mode.  The
     # choice is declared here rather than inherited silently.
     train_mode: str = "eval"
-    # Declared trainable surface: the full trunk_and_head default, or the
-    # reduced last_two_blocks_and_head arm that leaves trunk.inp frozen.
+    # Declared trainable surface: the full trunk_and_head default, the
+    # reduced last_two_blocks_and_head arm that leaves trunk.inp frozen, or
+    # the minimal last_block_and_head arm that also freezes blocks[0].
     optimizer_scope: str = OPTIMIZER_SCOPE
     seed: int = 2
 
@@ -174,28 +198,28 @@ def frozen_surface_sha256(
 ) -> dict:
     """Bitwise digest of everything the declared scope must leave untouched.
 
-    Always covers every condition encoder; when the reduced scope excludes
-    ``trunk.inp`` that layer joins the asserted-frozen set under its own
-    ``trunk_inp`` key.
+    Always covers every condition encoder; each trunk layer a narrowed scope
+    excludes (``trunk.inp`` for the reduced scope, plus ``trunk.blocks.0``
+    for the minimal scope) joins the asserted-frozen set under its own key.
     """
     if scope not in DECLARED_TRAINABLE_SURFACES:
         raise ValueError(f"undeclared optimizer scope: {scope!r}")
     digest = encoder_state_sha256(adapter)
-    if scope == REDUCED_OPTIMIZER_SCOPE:
-        trunk_inp = hashlib.sha256()
+    for key, prefix in _EXCLUDED_TRUNK_PREFIXES.get(scope, ()):
+        group = hashlib.sha256()
         seen = False
         for name, tensor in sorted(adapter.policy.state_dict().items()):
-            if not name.startswith("trunk.inp."):
+            if not name.startswith(prefix):
                 continue
             seen = True
             value = tensor.detach().cpu().contiguous()
-            trunk_inp.update(name.encode())
-            trunk_inp.update(str(value.dtype).encode())
-            trunk_inp.update(np.asarray(value.shape, dtype=np.int64).tobytes())
-            trunk_inp.update(value.numpy().tobytes())
+            group.update(name.encode())
+            group.update(str(value.dtype).encode())
+            group.update(np.asarray(value.shape, dtype=np.int64).tobytes())
+            group.update(value.numpy().tobytes())
         if not seen:
-            raise RuntimeError("policy exposes no trunk.inp state to freeze")
-        digest["trunk_inp"] = trunk_inp.hexdigest()
+            raise RuntimeError(f"policy exposes no {prefix} state to freeze")
+        digest[key] = group.hexdigest()
     return digest
 
 

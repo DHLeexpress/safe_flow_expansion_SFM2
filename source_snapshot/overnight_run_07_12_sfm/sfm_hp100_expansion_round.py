@@ -942,7 +942,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--train-mode", default="eval", choices=("eval", "train"))
     value.add_argument(
         "--optimizer-scope", default=UPD.OPTIMIZER_SCOPE,
-        choices=(UPD.OPTIMIZER_SCOPE, UPD.REDUCED_OPTIMIZER_SCOPE),
+        choices=tuple(sorted(UPD.DECLARED_TRAINABLE_SURFACES)),
     )
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--scene-profile", default="double_density_velocity_ood")

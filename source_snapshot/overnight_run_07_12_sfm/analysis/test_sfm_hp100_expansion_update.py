@@ -342,3 +342,56 @@ def test_reduced_scope_freezes_trunk_inp_bitwise_while_blocks_and_head_move():
         else:
             # trunk.inp and every condition encoder stay bitwise frozen.
             assert torch.equal(parameter, before[name]), name
+
+
+def test_minimal_scope_declares_last_block_and_head_only():
+    adapter = _adapter()
+    parameters, names = UPD.configure_trainable(
+        adapter, UPD.MINIMAL_OPTIMIZER_SCOPE,
+    )
+    assert tuple(names) == UPD.MINIMAL_TRAINABLE_NAMES
+    assert len(names) == 8
+    assert not any(
+        name.startswith(("policy.trunk.inp", "policy.trunk.blocks.0"))
+        for name in names
+    )
+    assert sum(parameter.numel() for parameter in parameters) == 137_236
+    # The wider surfaces are unchanged by the minimal declaration.
+    parameters, names = UPD.configure_trainable(adapter, UPD.OPTIMIZER_SCOPE)
+    assert sum(parameter.numel() for parameter in parameters) == 327_956
+
+
+def test_minimal_scope_freezes_inp_and_block0_bitwise_while_block1_head_move():
+    adapter = _adapter(seed=7)
+    before = {
+        name: parameter.detach().clone()
+        for name, parameter in adapter.named_parameters()
+    }
+    frozen_before = UPD.frozen_surface_sha256(
+        adapter, UPD.MINIMAL_OPTIMIZER_SCOPE,
+    )
+    assert "trunk_inp" in frozen_before
+    assert "trunk_block_0" in frozen_before
+    assert "trunk_block_0" not in UPD.frozen_surface_sha256(
+        adapter, UPD.REDUCED_OPTIMIZER_SCOPE,
+    )
+    metrics = UPD.expansion_update(
+        adapter, _positives(), _negatives(),
+        UPD.UpdateConfig(alpha=0.1, learning_rate=1.0e-3,
+                         optimizer_scope=UPD.MINIMAL_OPTIMIZER_SCOPE, seed=2),
+        round_index=1,
+    )
+    assert metrics["accepted"] and metrics["finite"]
+    assert metrics["optimizer_scope"] == UPD.MINIMAL_OPTIMIZER_SCOPE
+    assert metrics["trainable_parameters"] == 137_236
+    assert metrics["encoder_state_sha256_after"] == frozen_before
+    moved = 0
+    for name, parameter in adapter.named_parameters():
+        if name in UPD.MINIMAL_TRAINABLE_NAMES:
+            assert not torch.equal(parameter, before[name]), name
+            moved += 1
+        else:
+            # trunk.inp, blocks[0], and every condition encoder stay
+            # bitwise frozen.
+            assert torch.equal(parameter, before[name]), name
+    assert moved == 8

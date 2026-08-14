@@ -294,3 +294,74 @@ def test_contract_v2_amends_recipes_only_and_still_shortlists(tmp_path):
         SEARCH.write_contract_v2(
             v2_path, r0_sha256="a" * 64, amendment_of=v1_path, reason="y",
         )
+
+
+def test_declared_recipes_v3_drop_reduced_and_add_last_block_arms():
+    recipes = SEARCH.declared_recipes_v3()
+    assert [recipe.recipe_id for recipe in recipes] == [
+        "E1", "E4", "E16", "E1L", "E4L", "E16L",
+    ]
+    assert len({recipe.recipe_id for recipe in recipes}) == 6
+    assert [recipe.exposure_passes for recipe in recipes] == [1, 4, 16] * 2
+    assert [recipe.optimizer_scope for recipe in recipes] == (
+        ["trunk_and_head"] * 3 + ["last_block_and_head"] * 3
+    )
+    assert not any("R" == recipe.recipe_id[-1] for recipe in recipes)
+    for recipe in recipes:
+        assert recipe.alpha == 0.0
+        assert recipe.learning_rate == 1.0e-5
+        assert recipe.rounds == 5
+
+
+def test_contract_v3_extends_the_amendment_chain_and_still_shortlists(tmp_path):
+    v1_path = tmp_path / "SEARCH_CONTRACT.json"
+    v1 = SEARCH.write_contract(v1_path, r0_sha256="a" * 64)
+    v2_path = tmp_path / "SEARCH_CONTRACT_V2.json"
+    SEARCH.write_contract_v2(
+        v2_path, r0_sha256="a" * 64, amendment_of=v1_path,
+        reason="add the reduced last_two_blocks_and_head surface arms",
+    )
+    v3_path = tmp_path / "SEARCH_CONTRACT_V3.json"
+    with pytest.raises(ValueError, match="recorded reason"):
+        SEARCH.write_contract_v3(
+            v3_path, r0_sha256="a" * 64, amendment_of=v2_path, reason=" ",
+        )
+    contract = SEARCH.write_contract_v3(
+        v3_path, r0_sha256="a" * 64, amendment_of=v2_path,
+        reason=(
+            "add the minimal last_block_and_head arms and drop the v2 "
+            "last_two_blocks_and_head arms"
+        ),
+    )
+    assert contract["status"] == SEARCH.CONTRACT_STATUS
+    assert [recipe["recipe_id"] for recipe in contract["recipes"]] == [
+        "E1", "E4", "E16", "E1L", "E4L", "E16L",
+    ]
+    amendment = contract["amendment"]
+    assert amendment["supersedes"] == str(v2_path.resolve())
+    assert amendment["supersedes_sha256"] == SEARCH.sha256_file(v2_path)
+    # The chain records v2's own amendment block (which points at v1).
+    assert amendment["supersedes_amendment"]["supersedes"] == str(
+        v1_path.resolve()
+    )
+    assert amendment["declared_before_confirmation_read"] is True
+    # Guards, banks, ranking, and shortlist size are unchanged from v1.
+    for key in (
+        "sr_guard", "timeout_guard", "time_guard_seconds",
+        "per_gamma_cr_collapse", "per_gamma_validity_collapse",
+        "shortlist_size", "ranking_key", "banks", "r0_sha256",
+    ):
+        assert contract[key] == v1[key]
+    shortlist = SEARCH.select_shortlist(
+        contract,
+        [_dev_row("E4L_r2", "3" * 64, cr=0.30, validity=0.55, clearance=0.2)],
+        r0_ood={"SR": 0.56, "CR": 0.4371, "timeout": 0.0029,
+                "Validity": 0.4769},
+        r0_id={"SR": 0.9571, "CR": 0.0429, "timeout": 0.0,
+               "Validity": 0.7906},
+    )
+    assert [row["label"] for row in shortlist] == ["E4L_r2"]
+    with pytest.raises(FileExistsError, match="redeclare"):
+        SEARCH.write_contract_v3(
+            v3_path, r0_sha256="a" * 64, amendment_of=v2_path, reason="y",
+        )
