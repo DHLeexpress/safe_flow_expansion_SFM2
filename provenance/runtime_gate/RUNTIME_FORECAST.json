@@ -1,0 +1,52 @@
+{
+  "status": "RUNTIME_GATE_PASS",
+  "measured_train_round_seconds": 340.26520921941847,
+  "measured_M10_seconds": 197.74201764166355,
+  "measured_stage_seconds": {
+    "sfm_stepping": 41.57009543757886,
+    "flow_proposal": 0.25574667379260063,
+    "phi_rbf": 0.5299731893464923,
+    "verifier": 107.58614776935428,
+    "replay": 9.131453479640186,
+    "sanity": 189.7069109994918
+  },
+  "dominant_training_stage": "sanity",
+  "benchmark_rounds": 3,
+  "arm_count": 9,
+  "parallel_slots": [
+    "1a",
+    "3a",
+    "1b",
+    "3b",
+    "1c",
+    "3c",
+    "1d",
+    "3d"
+  ],
+  "workers_per_arm": 8,
+  "parallel_waves": 2,
+  "rounds": 20,
+  "forecast_components": {
+    "training": 14006.092404060066,
+    "candidate_screening": 1977.4201764166355,
+    "final_confirmation": 1977.4201764166355,
+    "multiplicative_headroom": 1.1
+  },
+  "forecast_seconds": 19757.02603258267,
+  "limit_seconds": 21600.0,
+  "source_commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7",
+  "checkpoint_sha256": "1b5179c935d3eeff8824967d707d64cc9bab273949ee1f0e4f190172bab1b215",
+  "preflight_sha256": "d04254396145bb632ffba67222de077067d989b2f57e80e185c2134ad599bc4c",
+  "scene_profile": "double_density_velocity_ood",
+  "gate_wall_seconds": 1130.504373351112,
+  "logs": [
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner16.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner16.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p01_inner16.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner4.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner4.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p01_inner4.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner1.log",
+    "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner1.log"
+  ]
+}

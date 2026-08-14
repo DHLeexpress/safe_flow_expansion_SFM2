@@ -1,0 +1,103 @@
+% Compact verifier polytope proof resource.
+% This file is intentionally standalone and is also imported conceptually by the IEEE-style note.
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{remark}{Remark}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert_2}
+\newcommand{\trans}{^{\mathsf T}}
+\title{Compact Verifier Polytope: SOCP Proof Notes}
+\author{Safe Flow Expansion / Pillar 3}
+\date{}
+\begin{document}
+\maketitle
+
+\section{Local Level-Set Certificate}
+Let $c=q_0\in\R^2$ and let $q_0,q_1,\ldots,q_H$ be the local MPPI rollout.  Define
+\[
+    \alpha_t=(1-\gamma)^t,\qquad \beta_t=1-\alpha_t.
+\]
+A face is represented as
+\[
+    a_i\trans(x-c)\le m_i.
+\]
+Its normalized face barrier is
+\[
+    h_i(x)=\frac{m_i-a_i\trans(x-c)}{m_i}.
+\]
+The condition $h_i(q_t)\ge\alpha_t$ is equivalent to
+\[
+    a_i\trans(q_t-c)\le \beta_t m_i.
+\]
+\textbf{Thus the recursive level-set certificate is linear in $(a_i,m_i)$.}
+
+\section{Circle Separation as a Cone Constraint}
+For disk $O_i=\{x:\norm{x-o_i}\le r_i\}$, the face separates the disk if
+\[
+    a_i\trans(x-c)\ge m_i\qquad\forall x\in O_i.
+\]
+The disk support identity is
+\[
+    \min_{x\in O_i}a_i\trans(x-c)=a_i\trans(o_i-c)-r_i\norm{a_i}.
+\]
+Therefore disk separation is
+\[
+    r_i\norm{a_i}\le a_i\trans(o_i-c)-m_i.
+\]
+\textbf{This is exactly a second-order cone constraint.}
+
+\section{Margin-Bounded SOCP}
+The compact verifier solves
+\begin{align}
+    \max_{\{a_i,m_i\}}\quad &\sum_i w_i m_i \\
+    \mathrm{s.t.}\quad
+    &a_i\trans(q_t-c)\le\beta_t m_i, &&\forall i,t,\\
+    &r_i\norm{a_i}\le a_i\trans(o_i-c)-m_i, &&\forall i,\\
+    &\norm{a_i}\le1, &&\forall i,\\
+    &m_{\min}\le m_i\le m_{\max}, &&\forall i.
+\end{align}
+
+\begin{proposition}[SOCP structure]
+The margin-bounded compact verifier is an SOCP.
+\end{proposition}
+\begin{proof}
+The trajectory constraints are affine.  The disk-separation inequalities are Lorentz cone inequalities of the form $\norm{Az+b}\le c\trans z+d$.  The bound $\norm{a_i}\le1$ is also SOC.  The margin bounds are affine, and the objective is linear.  Hence the problem is an SOCP.
+\end{proof}
+
+\begin{proposition}[Unit-normal relaxation without an upper margin cap]
+If $w_i>0$, $m_i>0$, and the upper bound $m_i\le m_{\max}$ is inactive or absent, then an optimum of an independent face saturates $\norm{a_i}=1$.
+\end{proposition}
+\begin{proof}
+For $0<\norm{a_i}<1$, choose $s>1$ such that $s\norm{a_i}\le1$ and set $\tilde a_i=s a_i$, $\tilde m_i=s m_i$.  The trajectory and disk constraints are homogeneous in $(a_i,m_i)$, so feasibility is preserved. Since $w_i>0$, $w_i\tilde m_i>w_i m_i$.  Therefore a non-saturated solution cannot be optimal while the upper margin cap is inactive.
+\end{proof}
+
+\begin{remark}[Effect of $m_{\max}$]
+\textbf{The upper bound $m_i\le m_{\max}$ is a geometry-changing constraint, not a weight rescaling.}  If the unconstrained max-margin face is too wide or produces a pointy wedge, choosing $m_{\max}$ near the desired tube half-width clips the face and can produce a compact tube-like verifier polytope.
+\end{remark}
+
+\section{Artificial Boundary Anchors}
+For sensing radius $R$ and $K$ directions
+\[
+ n_\ell=(\cos(2\pi\ell/K),\sin(2\pi\ell/K))\trans,
+\]
+let
+\[
+    M_K=R\cos(\pi/K),\qquad
+    o_\ell^{\rm art}=c+(M_K+\rho_{\rm art})n_\ell,
+    \qquad r_\ell^{\rm art}=\rho_{\rm art}.
+\]
+Then the radial tangent margin is $M_K$.  \textbf{Artificial anchors encode the sensing envelope as ordinary circular obstacles in the same SOCP template.}
+
+\section{Positive Weight Invariance for Independent Faces}
+If the feasible set decomposes as $\mathcal C=\prod_i\mathcal C_i$, then
+\[
+\max_{(a_i,m_i)\in\mathcal C_i}\sum_i w_i m_i
+=\sum_i\max_{(a_i,m_i)\in\mathcal C_i}w_i m_i.
+\]
+For $w_i>0$, $\arg\max w_i m_i=\arg\max m_i$.  \textbf{Thus positive weights alone do not reshape independent one-face-per-anchor polytopes.}
+
+\end{document}

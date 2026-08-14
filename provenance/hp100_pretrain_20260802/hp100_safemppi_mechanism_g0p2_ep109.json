@@ -1,0 +1,575 @@
+{
+  "candidate_contract": {
+    "acceptance": "all H=10 transitions satisfy H_P(x_next) >= (1-gamma) H_P(x_current) under one frozen current nominal polytope",
+    "display_selection": "deterministic proportional accepted/rejected subset",
+    "displayed_per_frame": 512,
+    "generated_per_replan": 2048,
+    "output": "temperature-weighted accepted candidates when any exist; when none exist, the planner's declared safest-fallback weights all rejected candidates",
+    "rejected_marker": "small red x at the first violating predicted state"
+  },
+  "dataset_target_contract": {
+    "eligible_identity": "target_eligible == (plan_accepted_count > 0 and plan_first_violation == -1)",
+    "excluded_rows": "all-rejected fallback means and accepted-set weighted means that fail the frozen-set H10 recheck remain provenance/history rows but never enter the CFM objective",
+    "recheck": "shared capped double-integrator rollout against the single nominal A,b,margins tuple persisted with the current Hp100 context after its planner-equivalence assertion",
+    "stored_rows": "every context from each retained task-successful lineage",
+    "target_tensor": "U = current planner mean_sequence [10,2]"
+  },
+  "episode": 109,
+  "frames": [
+    {
+      "accepted": 2041,
+      "frame_index": 0,
+      "rejected": 7,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 0,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 2048,
+      "frame_index": 1,
+      "rejected": 0,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 1,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1719,
+      "frame_index": 2,
+      "rejected": 329,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 2,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1370,
+      "frame_index": 3,
+      "rejected": 678,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 3,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1561,
+      "frame_index": 4,
+      "rejected": 487,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 4,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1622,
+      "frame_index": 5,
+      "rejected": 426,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 5,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1445,
+      "frame_index": 6,
+      "rejected": 603,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 6,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1339,
+      "frame_index": 7,
+      "rejected": 709,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 7,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1057,
+      "frame_index": 8,
+      "rejected": 991,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 8,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1231,
+      "frame_index": 9,
+      "rejected": 817,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 9,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1130,
+      "frame_index": 10,
+      "rejected": 918,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 10,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1057,
+      "frame_index": 11,
+      "rejected": 991,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 11,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1132,
+      "frame_index": 12,
+      "rejected": 916,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 12,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1305,
+      "frame_index": 13,
+      "rejected": 743,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 13,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1293,
+      "frame_index": 14,
+      "rejected": 755,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 14,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1308,
+      "frame_index": 15,
+      "rejected": 740,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 15,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1174,
+      "frame_index": 16,
+      "rejected": 874,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 16,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1207,
+      "frame_index": 17,
+      "rejected": 841,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 17,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1087,
+      "frame_index": 18,
+      "rejected": 961,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 18,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 932,
+      "frame_index": 19,
+      "rejected": 1116,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 19,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 693,
+      "frame_index": 20,
+      "rejected": 1355,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 20,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1218,
+      "frame_index": 21,
+      "rejected": 830,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 21,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 212,
+      "frame_index": 22,
+      "rejected": 1836,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 22,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 71,
+      "frame_index": 23,
+      "rejected": 1977,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 23,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 41,
+      "frame_index": 24,
+      "rejected": 2007,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 24,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 0,
+      "frame_index": 25,
+      "rejected": 2048,
+      "selection_semantics": "all_rejected_safest_fallback_weighted_mean",
+      "step": 25,
+      "weighted_first_violation": 2,
+      "weighted_h10_pass": false
+    },
+    {
+      "accepted": 0,
+      "frame_index": 26,
+      "rejected": 2048,
+      "selection_semantics": "all_rejected_safest_fallback_weighted_mean",
+      "step": 26,
+      "weighted_first_violation": 1,
+      "weighted_h10_pass": false
+    },
+    {
+      "accepted": 1347,
+      "frame_index": 27,
+      "rejected": 701,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 27,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1711,
+      "frame_index": 28,
+      "rejected": 337,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 28,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 915,
+      "frame_index": 29,
+      "rejected": 1133,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 29,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 638,
+      "frame_index": 30,
+      "rejected": 1410,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 30,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 821,
+      "frame_index": 31,
+      "rejected": 1227,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 31,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 948,
+      "frame_index": 32,
+      "rejected": 1100,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 32,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 950,
+      "frame_index": 33,
+      "rejected": 1098,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 33,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 847,
+      "frame_index": 34,
+      "rejected": 1201,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 34,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 798,
+      "frame_index": 35,
+      "rejected": 1250,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 35,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 470,
+      "frame_index": 36,
+      "rejected": 1578,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 36,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 616,
+      "frame_index": 37,
+      "rejected": 1432,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 37,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 544,
+      "frame_index": 38,
+      "rejected": 1504,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 38,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 817,
+      "frame_index": 39,
+      "rejected": 1231,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 39,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 950,
+      "frame_index": 40,
+      "rejected": 1098,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 40,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 959,
+      "frame_index": 41,
+      "rejected": 1089,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 41,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1434,
+      "frame_index": 42,
+      "rejected": 614,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 42,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1587,
+      "frame_index": 43,
+      "rejected": 461,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 43,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    },
+    {
+      "accepted": 1735,
+      "frame_index": 44,
+      "rejected": 313,
+      "selection_semantics": "accepted_temperature_weighted_mean",
+      "step": 44,
+      "weighted_first_violation": null,
+      "weighted_h10_pass": true
+    }
+  ],
+  "gamma": 0.2,
+  "outcome": {
+    "collision": false,
+    "min_clearance": 0.302112340927124,
+    "steps": 45,
+    "success": true,
+    "timeout": false
+  },
+  "outputs": {
+    "mp4": {
+      "bytes": 1322155,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_ef35f1f/expert_mechanism/hp100_safemppi_mechanism_g0p2_ep109.mp4",
+      "sha256": "416b77aeb60b36a06e365dcbb06a343b038bea3a4e671d4c4df00b0f74f69876"
+    },
+    "pdf": {
+      "bytes": 147449,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_ef35f1f/expert_mechanism/hp100_safemppi_mechanism_g0p2_ep109_step024.pdf",
+      "sha256": "f01a82fd5523ccce6621646f8ae4ab46c149b5a3966c61bfd2725baf85d44e9a"
+    },
+    "png": {
+      "bytes": 315272,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_ef35f1f/expert_mechanism/hp100_safemppi_mechanism_g0p2_ep109_step024.png",
+      "sha256": "9ef78c23b74068f7e7efed3f182ca494cd3b8495e589e1de14ed15f608e5d720"
+    },
+    "trace_npz": {
+      "bytes": 390644,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_ef35f1f/expert_mechanism/hp100_safemppi_mechanism_g0p2_ep109_step024_trace.npz",
+      "sha256": "106b6ae6fd6ff68f2aeb42a610504a2f028e5ad6ab21b0a819bc1b7e704ed148"
+    }
+  },
+  "planner_config": {
+    "adaptive_gamma": false,
+    "aniso_normal_scale": 0.5,
+    "aniso_tangent_scale": 1.7,
+    "barrier_activation_radius": 2.0,
+    "barrier_extra_margin": 0.0,
+    "barrier_topk": 0,
+    "centroid_eps": 0.15,
+    "centroid_gain": 0.2,
+    "centroid_smooth": 0.25,
+    "check_first_control_only": false,
+    "control_weight": 0.03,
+    "debug_max_rollouts": 2048,
+    "dt": 0.1,
+    "dynamics_type": "doubleintegrator",
+    "eta": 0.6,
+    "filter_iters": 3,
+    "filter_output": false,
+    "gamma": 0.5,
+    "gamma_max": 1.0,
+    "gamma_min": 0.1,
+    "goal_retreat_exp_cap": 6.0,
+    "goal_retreat_exp_scale": 0.05,
+    "goal_retreat_exp_weight": 0.0,
+    "guidance_horizon": 12,
+    "guidance_relax": 1.0,
+    "heading_weight": 0.4,
+    "horizon": 10,
+    "noise_sigma": [
+      0.8660254037844386,
+      0.8660254037844386
+    ],
+    "nominal_speed": 0.0,
+    "num_samples": 2048,
+    "polytope_area_sampling": false,
+    "polytope_nbase": 16,
+    "predict_gain": 0.0,
+    "progress_weight": 2.0,
+    "proposal_gaussian_mix": 96,
+    "random_backup_frac": 0.0,
+    "running_goal_weight": 0.25,
+    "safety_margin": 0.0,
+    "sets_branch_scale": 0.85,
+    "sets_cbf_push": 1.25,
+    "sets_include_cbf_backup": true,
+    "sets_num_modes": 3,
+    "sets_reverse_speed": 0.75,
+    "sets_turn_rate": 1.4,
+    "sigma_aniso": 2.5,
+    "sigma_max_mult": 3.0,
+    "sigma_volume_gain": 0.0,
+    "smooth_weight": 0.12,
+    "soft_clearance_weight": 25.0,
+    "temp_trapped_gain": 0.0,
+    "temperature": 0.1,
+    "terminal_goal_weight": 80.0,
+    "u_max": [
+      2.0,
+      2.0
+    ],
+    "u_min": [
+      -2.0,
+      -2.0
+    ],
+    "urgency_floor": 0.02,
+    "urgency_size_diff": false,
+    "use_aniso_cov": false,
+    "use_goal_nominal": false,
+    "use_guidance": false,
+    "use_ho_barrier": false,
+    "use_polytope_barrier": true,
+    "use_sets_backup": false,
+    "warm_start": true
+  },
+  "render": {
+    "fps": 7,
+    "frame_stride": 2,
+    "rendered_frames": 23
+  },
+  "role": "read-only rerun of the locked current-tangent Hp100 SafeMPPI expert; shows current candidate acceptance, MPPI weighting, and all-rejected fallback; never uses the post-hoc future-executed H10 training window",
+  "scene": {
+    "dt": 0.1,
+    "goal": [
+      6.0,
+      6.0
+    ],
+    "n_ped": 20,
+    "ped_speed_range": [
+      0.5,
+      1.0
+    ],
+    "pedestrian_radius": 0.2,
+    "role": "matched_in_distribution_benchmark",
+    "scene_profile": "matched_id",
+    "sensing_radius": 2.0,
+    "shift_from_training": "none; evaluation-only alias with the training density and speed range",
+    "task_bounds": [
+      -0.5,
+      6.5
+    ],
+    "training_reference": {
+      "n_ped": 20,
+      "ped_speed_range": [
+        0.5,
+        1.0
+      ]
+    }
+  },
+  "selected_frame": {
+    "accepted": 41,
+    "action_mean_max_abs_error": 0.0,
+    "frame_index": 24,
+    "rejected": 2007,
+    "selection_semantics": "accepted_temperature_weighted_mean",
+    "step": 24,
+    "trace_npz": "/data3/research1/sfm_hp100_dataset_mechanism_ef35f1f/expert_mechanism/hp100_safemppi_mechanism_g0p2_ep109_step024_trace.npz",
+    "weighted_h10_pass": true
+  },
+  "source_commit": "ef35f1f2df89a2131d9e0a21e0d7095a2d1d7b1d",
+  "status": "SFM_HP100_EXPERT_MECHANISM_VIZ_COMPLETE"
+}

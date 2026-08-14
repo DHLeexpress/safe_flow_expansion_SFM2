@@ -1,0 +1,62 @@
+{
+  "status": "HP100_EXTERNAL_DATA_POINTER",
+  "canonical": true,
+  "dataset_root_helios": "/data3/research1/sfm_hp100_certified_weighted_500x7_2671a94",
+  "dataset_manifest": "provenance/hp100_pretrain_20260802/dataset_manifest.json",
+  "dataset_manifest_sha256": "44f2bfa8afbb2318376ae9e188b1b622f102253a4a91f5c8ca0f9634d5041c94",
+  "dataset_source_commit": "2671a9447b7b914053dce5fe9be2a0aae6c67a8d",
+  "training_distribution": {
+    "n_ped": 20,
+    "ped_speed_range_mps": [0.5, 1.0],
+    "pedestrian_radius_m": 0.2,
+    "gammas": [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0],
+    "successful_lineages_per_gamma": 500,
+    "successful_lineages_total": 3500,
+    "attempted_episodes_total": 3630
+  },
+  "contexts": {
+    "stored": 204297,
+    "eligible_cfm_targets": 201075,
+    "excluded_all_rejected": 2395,
+    "excluded_weighted_h10_failure": 827,
+    "training_windows": 181096,
+    "validation_windows": 19979,
+    "split_unit": "globally trajectory-disjoint",
+    "objective_mass": "gamma -> successful lineage -> eligible window"
+  },
+  "target_contract": {
+    "tensor": "current SafeMPPI accepted-set weighted H=10 plan",
+    "eligibility": "plan_accepted_count > 0 and independent frozen nominal-polytope weighted-plan H10 recheck passes",
+    "ineligible_rows": "retained only in provenance/history; never enter CFM"
+  },
+  "feature_contract": {
+    "shape": [10, 32, 100],
+    "history_order": "newest-to-oldest",
+    "radial_cell_width_m": 0.02,
+    "radial_pooling": "none",
+    "observation_angular_rays": 32,
+    "nominal_polytope_outer_faces": 16,
+    "predict_gain": 0.0,
+    "construction": "fresh from raw state and pedestrian geometry; no Hp10 interpolation"
+  },
+  "dynamics": {
+    "dt": 0.1,
+    "action_cap_componentwise": 2.0,
+    "velocity_cap_componentwise": 2.0
+  },
+  "per_gamma_sha256": {
+    "0.1": "46ca3fb6ecdefbd870f38d2e3d0e24ee406b08c8c1252f868872ff34e49c90bc",
+    "0.2": "77ec5bc594f838361413217ba03523d4e469b88cd24b903fb851af90a8f684cf",
+    "0.3": "f9c6dc56889765d706e479b3bef69f850ba7c0b2a54d23320014980e6c29f0fb",
+    "0.4": "d6da6957bca0514b7355daab43f461b057e60e6b77a01f21fe4f63344658508c",
+    "0.5": "bcffefa0c71e5d844724ba6e03bfccb871182c23be329622681ee57a11546d94",
+    "0.7": "631a1ee1b5cefa8285c40e83159d42818db96239148930242902a59ce73d379b",
+    "1.0": "2d556e468f9d84278df6d0d8c76e9931e8cf1fe76806542e2528040e193246f9"
+  },
+  "promoted_checkpoint": {
+    "path": "checkpoints/hp100_pretrained_r0_258999ae.pt",
+    "sha256": "258999ae8ccee8aec5aab92a6f751221d3c15583ac26e0a7ec8311f13316ec44",
+    "pretraining_source_commit": "e9164e5a6e70b86cecae4660e7732f8ecc6a93f7"
+  },
+  "note": "Large tensor shards are not committed. This pointer and the bundled dataset manifest authenticate every shard. The old Hp10 pointer is retained as LEGACY_HP10_DATA_POINTER.json."
+}

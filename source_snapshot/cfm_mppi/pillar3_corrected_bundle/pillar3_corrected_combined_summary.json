@@ -1,0 +1,101 @@
+{
+  "runs": [
+    {
+      "summary": {
+        "dataset": "ucy",
+        "ego_path": "/mnt/data/eval80_ego_ucy.pt",
+        "obs_path": "/mnt/data/eval80_obs_ucy.pkl",
+        "n_cases": 25,
+        "gamma": 0.5,
+        "sensing": 2.0,
+        "horizon": 10,
+        "n_base": 16,
+        "num_samples": 256,
+        "verifier_success": 22,
+        "verifier_failure": 3,
+        "verifier_success_rate": 0.88,
+        "verifier_mean_time_ms": 30.808725772782385,
+        "verifier_median_time_ms": 12.987274500119383,
+        "verifier_max_time_ms": 193.98768599967298,
+        "verifier_mean_lp_time_ms": 11.159278409195394,
+        "mppi_mean_time_ms": 9.684780959978525,
+        "mean_accepted": 85.8,
+        "mean_rejected": 170.2,
+        "nominal_certified_count": 17,
+        "failures": [
+          {
+            "ep": 79,
+            "t": 56,
+            "reason": "LP_infeasible"
+          },
+          {
+            "ep": 223,
+            "t": 12,
+            "reason": "LP_infeasible"
+          },
+          {
+            "ep": 194,
+            "t": 27,
+            "reason": "LP_infeasible"
+          }
+        ]
+      },
+      "json": "/mnt/data/pillar3_corrected_final/pillar3_corrected_ucy_results.json",
+      "png": "/mnt/data/pillar3_corrected_final/pillar3_corrected_ucy_5x5.png",
+      "gif": null,
+      "csv": "/mnt/data/pillar3_corrected_final/pillar3_corrected_ucy_summary.csv",
+      "md": "/mnt/data/pillar3_corrected_final/pillar3_corrected_ucy_report.md"
+    },
+    {
+      "summary": {
+        "dataset": "sdd",
+        "ego_path": "/mnt/data/eval80_ego_sdd.pt",
+        "obs_path": "/mnt/data/eval80_obs_sdd.pkl",
+        "n_cases": 25,
+        "gamma": 0.5,
+        "sensing": 2.0,
+        "horizon": 10,
+        "n_base": 16,
+        "num_samples": 256,
+        "verifier_success": 21,
+        "verifier_failure": 4,
+        "verifier_success_rate": 0.84,
+        "verifier_mean_time_ms": 8.482432714161058,
+        "verifier_median_time_ms": 7.498027999645274,
+        "verifier_max_time_ms": 30.327121000482293,
+        "verifier_mean_lp_time_ms": 1.4496043809880834,
+        "mppi_mean_time_ms": 3.1251241999780177,
+        "mean_accepted": 127.32,
+        "mean_rejected": 128.68,
+        "nominal_certified_count": 20,
+        "failures": [
+          {
+            "ep": 233,
+            "t": 43,
+            "reason": "LP_infeasible"
+          },
+          {
+            "ep": 184,
+            "t": 25,
+            "reason": "no_positive_tangent_margin"
+          },
+          {
+            "ep": 132,
+            "t": 8,
+            "reason": "no_positive_tangent_margin"
+          },
+          {
+            "ep": 293,
+            "t": 29,
+            "reason": "no_positive_tangent_margin"
+          }
+        ]
+      },
+      "json": "/mnt/data/pillar3_corrected_final/pillar3_corrected_sdd_results.json",
+      "png": "/mnt/data/pillar3_corrected_final/pillar3_corrected_sdd_5x5.png",
+      "gif": null,
+      "csv": "/mnt/data/pillar3_corrected_final/pillar3_corrected_sdd_summary.csv",
+      "md": "/mnt/data/pillar3_corrected_final/pillar3_corrected_sdd_report.md"
+    }
+  ]
+}

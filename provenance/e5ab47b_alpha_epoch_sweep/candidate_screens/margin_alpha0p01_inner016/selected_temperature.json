@@ -1,0 +1,385 @@
+{
+  "status": "SFM_B1_CURVE_CELL_COMPLETE",
+  "cell_key": "673c8349e3a60e2c17d7969cf770bbc90b9ade3cd1f85709cd4e56de383e02f6",
+  "role": "candidate_selected_temperature_screening",
+  "round": 4,
+  "checkpoint_sha256": "3541027c10a0445c500782588c9dd325e63d7b5b2ed731bf18096af0aa7a26a9",
+  "scene_profile": "double_density_velocity_ood",
+  "ep0": 320000,
+  "M_per_gamma": 50,
+  "temperature_by_gamma": {
+    "0.1": 1.1,
+    "0.2": 1.0,
+    "0.3": 0.9,
+    "0.4": 0.9,
+    "0.5": 0.9,
+    "0.7": 0.9,
+    "1.0": 1.1
+  },
+  "noise_bank": {
+    "version": "sfm_b1_curve_eval_v2",
+    "scene_profile": "double_density_velocity_ood",
+    "ep0": 320000,
+    "M": 50,
+    "gammas": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.7,
+      1.0
+    ],
+    "T": 180,
+    "d": 20,
+    "seed": 929300362297163893,
+    "dtype": "float32",
+    "shape": [
+      7,
+      50,
+      180,
+      20
+    ],
+    "sha256": "cbc6e602528b1d8f04d223eb1cfc2d5140e6498e785cb6d0c598a2d2ddde874a",
+    "CRN": "identical per (gamma,episode,step) across checkpoints and temperatures; independent latent slice across gamma while scenario IDs remain paired"
+  },
+  "metric_semantics": {
+    "policy": "unguided flow; NFE=8; one generated window/context; execute first action",
+    "V_safe": "episode conjunction over physical task/collision safety and the exact certificate for every generated full-H=10 plan, including the final pre-goal planning context",
+    "clearance": "mean of per-trajectory minimum clearance over successful episodes only",
+    "time": "successful episodes only"
+  },
+  "summary": {
+    "pooled": {
+      "n": 350,
+      "SR": 0.6857142857142857,
+      "CR": 0.30857142857142855,
+      "timeout": 0.005714285714285714,
+      "V_safe": 0.002857142857142857,
+      "successful_clearance": {
+        "mean": 0.15291325505822898,
+        "interval95": [
+          0.12290931780230857,
+          0.18713089314594195
+        ],
+        "n": 240
+      },
+      "successful_time_to_goal": {
+        "mean": 8.705416666666668,
+        "interval95": [
+          8.361349370697074,
+          9.084489495798318
+        ],
+        "n": 240
+      },
+      "verifier_errors": 0,
+      "certified_windows": 2518,
+      "SR_cluster_bootstrap95": [
+        0.6114285714285714,
+        0.7572142857142853
+      ],
+      "CR_cluster_bootstrap95": [
+        0.23714285714285716,
+        0.38571428571428573
+      ],
+      "timeout_cluster_bootstrap95": [
+        0.0,
+        0.017142857142857144
+      ],
+      "V_safe_cluster_bootstrap95": [
+        0.0,
+        0.008571428571428572
+      ],
+      "ci_method": "scenario-cluster bootstrap across the seven paired gamma rows"
+    },
+    "per_gamma": {
+      "0.1": {
+        "n": 50,
+        "SR": 0.72,
+        "SR_wilson95": [
+          0.5833487630404344,
+          0.8252582933408878
+        ],
+        "CR": 0.28,
+        "CR_wilson95": [
+          0.17474170665911232,
+          0.4166512369595657
+        ],
+        "timeout": 0.0,
+        "timeout_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.1679286737408903,
+          "interval95": [
+            0.12939157027544246,
+            0.20997286583814354
+          ],
+          "n": 36
+        },
+        "successful_time_to_goal": {
+          "mean": 10.980555555555556,
+          "interval95": [
+            10.191666666666668,
+            11.8
+          ],
+          "n": 36
+        },
+        "verifier_errors": 0,
+        "certified_windows": 266
+      },
+      "0.2": {
+        "n": 50,
+        "SR": 0.6,
+        "SR_wilson95": [
+          0.4618143774758936,
+          0.7239161026974346
+        ],
+        "CR": 0.38,
+        "CR_wilson95": [
+          0.25862789310193596,
+          0.5184955306900703
+        ],
+        "timeout": 0.02,
+        "timeout_wilson95": [
+          0.003539259271646236,
+          0.10495443589637815
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.17561498334010442,
+          "interval95": [
+            0.13243333667516707,
+            0.22456870567053552
+          ],
+          "n": 30
+        },
+        "successful_time_to_goal": {
+          "mean": 8.883333333333335,
+          "interval95": [
+            8.266666666666667,
+            9.520000000000001
+          ],
+          "n": 30
+        },
+        "verifier_errors": 0,
+        "certified_windows": 326
+      },
+      "0.3": {
+        "n": 50,
+        "SR": 0.68,
+        "SR_wilson95": [
+          0.5418970269185592,
+          0.7924178373934316
+        ],
+        "CR": 0.3,
+        "CR_wilson95": [
+          0.19103553500880954,
+          0.437503504644534
+        ],
+        "timeout": 0.02,
+        "timeout_wilson95": [
+          0.003539259271646236,
+          0.10495443589637815
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.14485827088356018,
+          "interval95": [
+            0.10792063131709309,
+            0.1841143489541376
+          ],
+          "n": 34
+        },
+        "successful_time_to_goal": {
+          "mean": 8.208823529411765,
+          "interval95": [
+            7.788235294117648,
+            8.626470588235295
+          ],
+          "n": 34
+        },
+        "verifier_errors": 0,
+        "certified_windows": 369
+      },
+      "0.4": {
+        "n": 50,
+        "SR": 0.62,
+        "SR_wilson95": [
+          0.4815044693099298,
+          0.7413721068980641
+        ],
+        "CR": 0.38,
+        "CR_wilson95": [
+          0.25862789310193596,
+          0.5184955306900703
+        ],
+        "timeout": 0.0,
+        "timeout_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.1525971221347009,
+          "interval95": [
+            0.11335053491976953,
+            0.19749538125770702
+          ],
+          "n": 31
+        },
+        "successful_time_to_goal": {
+          "mean": 8.251612903225807,
+          "interval95": [
+            7.699999999999999,
+            8.867741935483872
+          ],
+          "n": 31
+        },
+        "verifier_errors": 0,
+        "certified_windows": 338
+      },
+      "0.5": {
+        "n": 50,
+        "SR": 0.74,
+        "SR_wilson95": [
+          0.6044684273515117,
+          0.8412847250644762
+        ],
+        "CR": 0.26,
+        "CR_wilson95": [
+          0.15871527493552393,
+          0.39553157264848837
+        ],
+        "timeout": 0.0,
+        "timeout_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "V_safe": 0.02,
+        "V_safe_wilson95": [
+          0.003539259271646236,
+          0.10495443589637815
+        ],
+        "successful_clearance": {
+          "mean": 0.14635910697885463,
+          "interval95": [
+            0.11100726812272457,
+            0.1898406543844455
+          ],
+          "n": 37
+        },
+        "successful_time_to_goal": {
+          "mean": 7.87027027027027,
+          "interval95": [
+            7.4918918918918935,
+            8.243243243243244
+          ],
+          "n": 37
+        },
+        "verifier_errors": 0,
+        "certified_windows": 477
+      },
+      "0.7": {
+        "n": 50,
+        "SR": 0.76,
+        "SR_wilson95": [
+          0.6258731624205708,
+          0.8570260860300828
+        ],
+        "CR": 0.24,
+        "CR_wilson95": [
+          0.1429739139699173,
+          0.3741268375794292
+        ],
+        "timeout": 0.0,
+        "timeout_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.13796731045371607,
+          "interval95": [
+            0.1020929265571268,
+            0.1792925821911347
+          ],
+          "n": 38
+        },
+        "successful_time_to_goal": {
+          "mean": 8.15,
+          "interval95": [
+            7.742105263157896,
+            8.571118421052635
+          ],
+          "n": 38
+        },
+        "verifier_errors": 0,
+        "certified_windows": 383
+      },
+      "1.0": {
+        "n": 50,
+        "SR": 0.68,
+        "SR_wilson95": [
+          0.5418970269185592,
+          0.7924178373934316
+        ],
+        "CR": 0.32,
+        "CR_wilson95": [
+          0.20758216260656845,
+          0.45810297308144077
+        ],
+        "timeout": 0.0,
+        "timeout_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "V_safe": 0.0,
+        "V_safe_wilson95": [
+          6.938893903907228e-18,
+          0.07134759913335872
+        ],
+        "successful_clearance": {
+          "mean": 0.14916360904188716,
+          "interval95": [
+            0.10693074452745563,
+            0.19797083209542668
+          ],
+          "n": 34
+        },
+        "successful_time_to_goal": {
+          "mean": 8.579411764705885,
+          "interval95": [
+            8.152941176470588,
+            9.00294117647059
+          ],
+          "n": 34
+        },
+        "verifier_errors": 0,
+        "certified_windows": 359
+      }
+    }
+  }
+}

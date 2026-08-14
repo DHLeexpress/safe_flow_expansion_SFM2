@@ -1,0 +1,27 @@
+{
+  "status": "EXTERNAL_DATA_POINTER",
+  "dataset_root_helios": "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01",
+  "dataset_manifest_sha256": "fd6fac0140411b20d2f496609029c1fa02eabfc5464c3f41889119e7d31b9585",
+  "training_distribution": {
+    "n_ped": 20,
+    "ped_speed_range_mps": [0.5, 1.0],
+    "gammas": [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0]
+  },
+  "promoted_split": {
+    "training_windows": 238222,
+    "validation_windows": 26139,
+    "split_unit": "trajectory",
+    "objective_mass": "gamma -> successful trajectory -> window"
+  },
+  "per_gamma_sha256": {
+    "0.1": "de5d5b161753f3151a127c2c518a363ef40bb0e73ccc47bb3ed8e2afe0d07efa",
+    "0.2": "2c28df830863188f89ad5d62bcec73dc9f72806367c40528cc17a946ce7abc93",
+    "0.3": "55f01dd745ee53cac8c5ab50f0b955831c6980bde7ce88e7696979112e216733",
+    "0.4": "04f5a17903659c78f1def5b7c9f465db2727c9023d832d1ed9e3c34499da5363",
+    "0.5": "8cfc9fd74787c1a3969badc4e7f17a882e570ec17531b230fda7245ec93c4577",
+    "0.7": "2f0508f5b26ecfed62290c695d9aeee1e2355b9e16a9568782916ad722736507",
+    "1.0": "d2ffaedd2e16a550af42d923ed01a1c4774951338963fb211c9124c696faa0b4"
+  },
+  "note": "Large tensor shards are not committed. The checkpoint embeds full trajectory split metadata and the same hashes."
+}
+

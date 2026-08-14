@@ -1,0 +1,92 @@
+{
+  "counterfactual": null,
+  "dataset": {
+    "file": "/data3/research1/sfm_hp100_certified_weighted_500x7_2671a94/sfm_hp100_windows_g0.2.pt",
+    "file_sha256": "77ec5bc594f838361413217ba03523d4e469b88cd24b903fb851af90a8f684cf",
+    "gamma": 0.2,
+    "manifest": "/data3/research1/sfm_hp100_certified_weighted_500x7_2671a94/manifest.json",
+    "manifest_sha256": "44f2bfa8afbb2318376ae9e188b1b622f102253a4a91f5c8ca0f9634d5041c94",
+    "root": "/data3/research1/sfm_hp100_certified_weighted_500x7_2671a94",
+    "stored_contexts": 45,
+    "successful_episode": 109
+  },
+  "feature_source": {
+    "path": "/home/dohyun/projects/safeMPPI-sfm-hp100-b659526/overnight_run_07_12_sfm/sfm_hp100_features.py",
+    "sha256": "108aca9fdf58465d77de2c3949f19d09bb7283aa12ce12a0cf253b48abce4586"
+  },
+  "geometry_observation_separation": {
+    "equal": false,
+    "nominal_artificial_outer_faces": 16,
+    "observation_angular_rays": 32,
+    "statement": "K=16 nominal support geometry is independent of 32 raster rays"
+  },
+  "outputs": {
+    "geometry_npz": {
+      "bytes": 14396,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_b659526/data_provenance/hp100_expert_g0p2_ep109_step026_geometry.npz",
+      "sha256": "9bdea1f2b6d7adaaf6698b33178d8b2f0581fc1181c780d2c62f0eff231ca727"
+    },
+    "mp4": {
+      "bytes": 754159,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_b659526/data_provenance/hp100_expert_g0p2_ep109.mp4",
+      "sha256": "4c597b5bab106f05e7893e9df629a89667fb5d70219b61ff2dd96da9f9483736"
+    },
+    "pdf": {
+      "bytes": 51167,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_b659526/data_provenance/hp100_expert_g0p2_ep109_step026.pdf",
+      "sha256": "bad3b450cff5f4ba1d277c076601c1295af0d05790fc687a1c36ab38c19d07d1"
+    },
+    "png": {
+      "bytes": 288853,
+      "path": "/data3/research1/sfm_hp100_dataset_mechanism_b659526/data_provenance/hp100_expert_g0p2_ep109_step026.png",
+      "sha256": "23af68dbacaebff053c1ff8fb9ade4c66b91be64fa61ffd06abbcf8b7cef3ded"
+    }
+  },
+  "provenance_audit": {
+    "all_hp_bitwise_equal": true,
+    "artificial_outer_faces": 16,
+    "contexts": 45,
+    "detected_obstacle_faces_max": 5,
+    "detected_obstacle_faces_min": 1,
+    "eligible_weighted_plan_contexts": 43,
+    "excluded_weighted_plan_contexts": 2,
+    "hp_bitwise_matches": 45,
+    "hp_max_abs_error": 0.0,
+    "observation_angular_rays": 32,
+    "radial_bins": 100,
+    "radial_cell_width": 0.02,
+    "rollout_bitwise_equal": true,
+    "rollout_max_abs_error": 0.0
+  },
+  "provenance_distinction": {
+    "equality_check": "recomputed Hp100 is bitwise equal to the stored raster",
+    "recomputed": "canonical float32 A,b,ref,margins from the stored state/pedestrians under the manifest-pinned feature source",
+    "stored": "Hp100 raster, robot state, pedestrian positions/velocities, executed action, current weighted H10 plan, acceptance counts, and target eligibility"
+  },
+  "render": {
+    "fps": 8,
+    "frame_stride": 2,
+    "history_diagnostic": "min over 32 angles for each of the exact ten stored/reconstructed history frames; diagnostic only",
+    "level_sets": 10,
+    "pedestrian_radius": 0.2,
+    "rendered_frames": 23
+  },
+  "role": "post-collection provenance visualization; no expert rerun, no data selection, and no approximate geometry",
+  "selected_frame": {
+    "geometry_condition": {
+      "cancellation_condition": 15.368513438003466,
+      "cancellation_scale": 8.741909564801976,
+      "minimum_margin": 0.5688194632530212,
+      "minimum_margin_face": 16
+    },
+    "geometry_sidecar": "/data3/research1/sfm_hp100_dataset_mechanism_b659526/data_provenance/hp100_expert_g0p2_ep109_step026_geometry.npz",
+    "rendered_frame_index": 13,
+    "selected_step": 26,
+    "stored_row_index": 26
+  },
+  "source": {
+    "path": "/home/dohyun/projects/safeMPPI-sfm-hp100-b659526/overnight_run_07_12_sfm/sfm_hp100_data_viz.py",
+    "sha256": "e0356f990fe7f6ae322a7705c9b942dde6775d8f3aed0e7376775dacaf22adab"
+  },
+  "status": "SFM_HP100_DATA_PROVENANCE_VIZ_COMPLETE"
+}

@@ -1,0 +1,79 @@
+{
+  "status": "COMPACT_ROUND_RECORDS_COMPLETE",
+  "source_root": "/data3/research1/sfm_b1_alpha_inner_full_e5ab47b_20260721",
+  "transform": "lossless for sanity summaries and shard counts; aggregate-only for lineage outcomes and optimizer vectors",
+  "files": [
+    {
+      "arm": "margin_alpha0_inner001",
+      "source_metrics_sha256": "6c20936f354dbd77fbbfb29cd8ca3bb2d7db603107547ed076735329782fa8d7",
+      "source_bytes": 2202478,
+      "compact_file": "margin_alpha0_inner001.jsonl",
+      "compact_bytes": 184026,
+      "compact_sha256": "8bd3d92446880316984f3ceb5eaca6fe4cce941ba9bf366dd3656c612817b904"
+    },
+    {
+      "arm": "margin_alpha0_inner004",
+      "source_metrics_sha256": "22d91250a693ea6426539de12eb0c9bdf9930fa3c1513a2f05f62a8ef2d63de0",
+      "source_bytes": 4952387,
+      "compact_file": "margin_alpha0_inner004.jsonl",
+      "compact_bytes": 184640,
+      "compact_sha256": "19006ad44d5de01fa471693963d95429e3003713e0a12f27d0e562afb69315ea"
+    },
+    {
+      "arm": "margin_alpha0_inner016",
+      "source_metrics_sha256": "b305a9e6206b49e22a8bad481952815a9ec08ee9fe54fd5f92306bec54c3e99c",
+      "source_bytes": 15048554,
+      "compact_file": "margin_alpha0_inner016.jsonl",
+      "compact_bytes": 184866,
+      "compact_sha256": "a999955a5907ebf558ee5f485c2a1ba9e4120360ca1ca1159bf4ed66bc4e0054"
+    },
+    {
+      "arm": "margin_alpha0p001_inner001",
+      "source_metrics_sha256": "8924beda14bcfe024bfc1d242cea3d66ea601174b531bf1f237e9a2c926fc08c",
+      "source_bytes": 2760003,
+      "compact_file": "margin_alpha0p001_inner001.jsonl",
+      "compact_bytes": 188820,
+      "compact_sha256": "90957e29f53a4bc4ac790c5cd5c92a2da492334215e4f8b5b2a73c56c9a70182"
+    },
+    {
+      "arm": "margin_alpha0p001_inner004",
+      "source_metrics_sha256": "9a374d3be8c029f4ac3dafcf6b86aeb59b47157c375f9aed37a893ca3820eb16",
+      "source_bytes": 5954630,
+      "compact_file": "margin_alpha0p001_inner004.jsonl",
+      "compact_bytes": 188954,
+      "compact_sha256": "7156011679cd98139e7a1c4284eb87d0e1700e40351198ea6a2509799714927d"
+    },
+    {
+      "arm": "margin_alpha0p001_inner016",
+      "source_metrics_sha256": "dbcd37dbfcbe83942d43d18c203a97b611a3baa843b8a571e900bbc8e416c7b4",
+      "source_bytes": 18585572,
+      "compact_file": "margin_alpha0p001_inner016.jsonl",
+      "compact_bytes": 189430,
+      "compact_sha256": "4484aff36a4034596b07ea4fe8f796f9ea3d6feee2ba81f6acdf610a21d28351"
+    },
+    {
+      "arm": "margin_alpha0p01_inner001",
+      "source_metrics_sha256": "a01014cc291575d19253021a0ee83fb8445394b5772d1ff636e9988b30a0a42f",
+      "source_bytes": 2752927,
+      "compact_file": "margin_alpha0p01_inner001.jsonl",
+      "compact_bytes": 188477,
+      "compact_sha256": "f4a97d362cb94f469bcd643b9eac124a597b7fc7cda829c3ebfd50152f6da98c"
+    },
+    {
+      "arm": "margin_alpha0p01_inner004",
+      "source_metrics_sha256": "283b87633dca1a801aa0bcfe036294a2bd9d1f0502ab64dac4fc7fd2c611196a",
+      "source_bytes": 6132598,
+      "compact_file": "margin_alpha0p01_inner004.jsonl",
+      "compact_bytes": 188434,
+      "compact_sha256": "b3fb2e9141a600f49bef8ba5bf5bdaadecb350a86b519a2e845960566b571613"
+    },
+    {
+      "arm": "margin_alpha0p01_inner016",
+      "source_metrics_sha256": "3df3a74e40e8ece98cee95796e6f9955df2c834a4ebbe5e9e34f4bff82ea2646",
+      "source_bytes": 19164387,
+      "compact_file": "margin_alpha0p01_inner016.jsonl",
+      "compact_bytes": 189453,
+      "compact_sha256": "605516d713aa615ba9831940d267050647864f2763c4e3b4eff3cdc28001a43c"
+    }
+  ]
+}

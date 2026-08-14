@@ -1,0 +1,41 @@
+{
+  "status": "DECLARED_RECIPE",
+  "source_commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7",
+  "scene_profile": "double_density_velocity_ood",
+  "rounds": 20,
+  "replicas_per_gamma": 8,
+  "gammas": [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0],
+  "K": 16,
+  "B": 4,
+  "H": 10,
+  "T": 180,
+  "execution": "max_one_step_nominal_Hp_margin_among_full_H_positive_and_nominal_gate",
+  "nvp": "fail_closed_per_replica",
+  "rbf": {
+    "ell0": 0.48421653441442203,
+    "ell": 0.24210826720721101,
+    "lambda": 0.01,
+    "cap": 512,
+    "round_window": 2,
+    "retain_per_round": 256,
+    "retention": "per-gamma upper-quartile then deterministic context-stratified sampling; rotating 36/37 quota; no borrowing",
+    "adaptive_normalized_ess_target": 0.5
+  },
+  "replay": {
+    "round_window": 2,
+    "batch": 128,
+    "learning_rate": 0.0001,
+    "optimizer_chunks": 16,
+    "alpha": [0.0, 0.001, 0.01],
+    "complete_replay_epochs": [1, 4, 16],
+    "mass": "gamma -> (round, episode) -> context -> query"
+  },
+  "evaluation": {
+    "canonical": "raw temperature=1, NFE=8, one window/context, execute first action",
+    "development": "M10/gamma every round",
+    "shortlist": 4,
+    "screen": "disjoint temperature calibration then one M50/gamma",
+    "confirmation": "paired untouched M100/gamma canonical and locked-temperature"
+  },
+  "output_root": "/data3/research1"
+}

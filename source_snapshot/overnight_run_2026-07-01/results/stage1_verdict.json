@@ -1,0 +1,23 @@
+{
+  "0.1": {
+    "threaded": true,
+    "went_around": false,
+    "reached_gap_plane": true,
+    "cross_y": -0.10381789426567282,
+    "half_center": 0.20000000596046447
+  },
+  "0.5": {
+    "threaded": true,
+    "went_around": false,
+    "reached_gap_plane": true,
+    "cross_y": -0.14435777248126117,
+    "half_center": 0.20000000596046447
+  },
+  "1.0": {
+    "threaded": true,
+    "went_around": false,
+    "reached_gap_plane": true,
+    "cross_y": -0.008443185038116615,
+    "half_center": 0.20000000596046447
+  }
+}

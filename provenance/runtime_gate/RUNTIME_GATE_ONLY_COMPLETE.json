@@ -1,0 +1,464 @@
+{
+  "status": "SFM_B1_RUNTIME_GATE_ONLY_COMPLETE",
+  "source": {
+    "branch": "codex/sfm-hp10-ood-v2",
+    "commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7",
+    "remote_commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7"
+  },
+  "gpu": {
+    "requested": [
+      {
+        "index": "1",
+        "uuid": "GPU-50fb5dae-52a8-5843-bc81-b869586dccde",
+        "name": "NVIDIA H100 NVL",
+        "memory_total_mib": 95830,
+        "memory_used_mib": 18,
+        "utilization_percent": 0
+      },
+      {
+        "index": "3",
+        "uuid": "GPU-b5993142-760d-a6fe-9430-3d0e65203b6d",
+        "name": "NVIDIA H100 NVL",
+        "memory_total_mib": 95830,
+        "memory_used_mib": 19,
+        "utilization_percent": 0
+      }
+    ],
+    "preexisting_processes": [],
+    "sharing_authorized_by_user": true
+  },
+  "authentication": {
+    "source": {
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/_paths.py": "a5e48f705f228a4f5dcb66060761e430de0114803257f142e5faa3013fbca33e",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/grid_policy_sfm.py": "a021a6d6a48ccd3452a767d7f725bedc7c0346160a843e67c7fb3c40324f1b5b",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_alpha_steps_sweep.py": "5e11e876fb4693892b8c33507af1b674d73786bf31170cc13b54331018a19222",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_benchmark.py": "633eb666f6c35ffa9e9039a6f749f8fa76503cb7a833f65c1552b93b66a88477",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_cost.py": "9020d73f79bcd0d4c45a61aab62f32237292faa68f76827ac25497ca19b32493",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_curve_eval.py": "728c0322e0055d69d625c724cfd183c7b1e96a5189be86e89ad8be81e51b59cd",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_density_diagnostic.py": "3cc7501e6ac68cbaf386bcc6d22153425801d7427b9bf354e8f45e3dee9b7a51",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_density_viz.py": "703d394a5be78e49b488f4216374e29cb89eb27d408b231c472d61b22118f430",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_deploy_driver.py": "f6a7786ebdca525b466abadd585f5d439b77f50bed340a041cac06eff6dcd988",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_eval.py": "1ca7fcf5dac0d5961b45cd8ac5d793f36f1b7ac49d5a321240c308592fbec4ea",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_expand.py": "f1fb8c4e5ef07dcb93c8ca68de5886c16333a2b95e72f9ac5a1bbd976f9dcaea",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_expert.py": "3605b617f1040fa4420691da76292a1080852ad0da64aaaab53f9a78c143c4ed",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_method_viz.py": "ddce98d41f5b372aef9271e6e8de20024951fc659a13614581141b0bef2b61bc",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_query_diagnostic.py": "8e9ae049c341303e4412d26a95bf97a3be5d40bb8dce7b31867c1ebcf74ea5a0",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_rbf.py": "8370fa521c4415d94312b64541be76d7056607abb8ad8de38d7cb6ec915a81da",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_sharded_benchmark.py": "5ad60bb58a406e03e8a9e9a45c3719366773c793136b512153fd0f7862ed945c",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_store.py": "8d61eed787b42d62e2d24853d9090986f662de5c9c9db7f967b094c0e9dd39c4",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_sweep.py": "b5a4bfbf2e5b71b472bbd6b7ae893b239addcd9c4f998b9587628f12b4c7b855",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_viz.py": "50d5ac88aa4958ea9212209a858471cfc0f1dd9eb512b26d1491cef75593277f",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_b1_viz_socp.py": "ff0b2d8814d97b4113a0fc8db925f1b432b8fff08b42635a263903708e09f4be",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_features.py": "42185c681fd97f8e56155cdd0817fdcc0a6a2885e7204ce1f4da1be5fb3fda66",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_hp_history.py": "15684660e8329a654bcda1aecaa7d7c20bf4e770d20d39dff3f1ed7eed788b3b",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_kazuki.py": "bc8cff2487cc2619053c84c9b424bc7d2936901e0b0a651a95c0b8d6d004d21a",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_metrics2.py": "beb49fde691fdc3e86759cbd00ca45186ac350d5b088dae14061f29d5d290eca",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_protocol.py": "a2055e54fd9ce39844d175fdb837d41015243911db87ce075962718acbc6429d",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/sfm_scene.py": "fea1d3e0972d9df3487bb59c2cc435f96890ecbc1263af7d7c3d455d210d18a1",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/stage3_pretrain_sfm.py": "301f43e48ce3961de0f18cc477768176dc1655994fedc70284a44489795178df",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_alpha_steps_sweep.py": "9988f6710d71951a45476eaaf200291ae4c8ab1fa4cae108add3098f0124b85c",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_checkpoint_freeze.py": "b43be7debe40ff99da7bbeb67571732856fa549edbe5d6973c2c52c97fd151df",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_cost.py": "e28d61b6096448a3bba4b933c5d61c144692fa9a87f50a5c8e56eb5c7d70416e",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_curve_eval.py": "979617cef69a007188986be60da5b848ebb2aa47b8e876d47246b79ff5067498",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_density_diagnostic.py": "db5a982ced25f78e9e1a76bb9d5fa6e116df3268577c382a291aa9753310b597",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_density_viz.py": "c4570c5ac14cfe46a262546a74f6f3bab78caa789e22c9836f69f1ed62bdc88b",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_gp_retention.py": "c90fe0b858679768daad08d9986f5e9829976f690aea528551458fe836b684d2",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_pretrain.py": "8a41c0ae64690505f975d6724d6c090a590ccfa35e345ae7e87c5d1725c64855",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_protocol.py": "a89ce05d02a2532f8e91e2968ea9ccf673853b6e5d6691a4831a040b1d98325c",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_rbf.py": "89729971f82f9c4998ddbf13530cc8b32d06cf6e79a2f2b696f347bd8b042662",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_replay.py": "c92501ca6a56b4108314bc1953bd69aa1b6b1ba5e72ebb32857ac35667a507eb",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_runtime.py": "a3e55f4370e92e8b09a155e808e47497c6121cbeae6b3b1cc515e90b0c413ade",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_sharded_benchmark.py": "4a744cd15971777d106e430246071bdbf63b916044696bd22ae641b749236a3e",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_store.py": "be3d50b0eab532ca325666e1c5315ee03272fca9bf771950b2a6b06d4a3c36d7",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_sweep_slots.py": "861abb07a79b4ba1bee6f384f8c566358554c4c2251faa336da4237a9b48fa0d",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_verifier.py": "5373062e697969902064e21e81829b582eebf56b572105ca792af581b0c2a529",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_viz.py": "a13f737c64bfb4aaf6624e97fa851ade3dc182193dbe5cab94e4f3ca82e5e30c",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_b1_viz_socp.py": "ca9edacd04ab9a7c26a09a6a7b435700dc284eca055c085ae2cdf2004b83224b",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_hp_history.py": "fe7355ac9fffa58d2117a8a48491c766f01ed04286cb9b518185fab29e99fe92",
+      "/home/dohyun/projects/cfm_mppi-sfm-hp10-ood-v2/overnight_run_07_12_sfm/analysis/test_sfm_kazuki_cost_match.py": "70ef2bc968ca85971403225c20a04759df309b979641e3446f9182a8e875b7b2"
+    },
+    "dataset": {
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/manifest.json": "fd6fac0140411b20d2f496609029c1fa02eabfc5464c3f41889119e7d31b9585",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.1.pt": "de5d5b161753f3151a127c2c518a363ef40bb0e73ccc47bb3ed8e2afe0d07efa",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.2.pt": "2c28df830863188f89ad5d62bcec73dc9f72806367c40528cc17a946ce7abc93",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.3.pt": "55f01dd745ee53cac8c5ab50f0b955831c6980bde7ce88e7696979112e216733",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.4.pt": "04f5a17903659c78f1def5b7c9f465db2727c9023d832d1ed9e3c34499da5363",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.5.pt": "8cfc9fd74787c1a3969badc4e7f17a882e570ec17531b230fda7245ec93c4577",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g0.7.pt": "2f0508f5b26ecfed62290c695d9aeee1e2355b9e16e6568782916ad722736507",
+      "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01/sfm_windows_g1.0.pt": "d2ffaedd2e16a550af42d923ed01a1c4774951338963fb211c9124c696faa0b4"
+    },
+    "dataset_root": "/home/dohyun/projects/cfm_mppi/overnight_run_07_12_sfm/dataset_id_v01",
+    "scene_snapshot": "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/scene_snapshot.json",
+    "scene_sha256": "ea33f0c1f06ca3218e6631b2b51393be78a33ec1097045cfe503340a4bf96b60",
+    "environment": {
+      "scene_profile": "double_density_velocity_ood",
+      "n_ped": 40,
+      "ped_speed_range": [
+        1.0,
+        2.0
+      ],
+      "role": "twofold_density_and_velocity_ood_benchmark",
+      "shift_from_training": "pedestrian count 40 versus 20 and speed range 1.0-2.0 versus 0.5-1.0 m/s",
+      "training_reference": {
+        "n_ped": 20,
+        "ped_speed_range": [
+          0.5,
+          1.0
+        ]
+      },
+      "goal": [
+        6.0,
+        6.0
+      ],
+      "pedestrian_radius": 0.2,
+      "dt": 0.1,
+      "sensing_radius": 2.0,
+      "task_bounds": [
+        -0.5,
+        6.5
+      ]
+    },
+    "checkpoint": {
+      "path": "/home/dohyun/projects/sfm_hp10_b1_runs/103476d/pretrained_hp10.pt",
+      "sha256": "1b5179c935d3eeff8824967d707d64cc9bab273949ee1f0e4f190172bab1b215"
+    },
+    "manifest_sha256": "328f35e589b6879f0995bb5529eb95ac48901fcfd0293838fa587d38062a8eaf"
+  },
+  "preflight": {
+    "status": "RBF_PREFLIGHT_COMPLETE",
+    "checkpoint": "/home/dohyun/projects/sfm_hp10_b1_runs/103476d/pretrained_hp10.pt",
+    "checkpoint_sha256": "1b5179c935d3eeff8824967d707d64cc9bab273949ee1f0e4f190172bab1b215",
+    "ell0": 0.48421653441442203,
+    "lengthscale_count": 50,
+    "balance": "round-robin gamma and scenario",
+    "lambda_": 0.01,
+    "candidates": [
+      {
+        "ell_multiplier": 0.5,
+        "ell": 0.24210826720721101,
+        "cap": 256,
+        "beta": 0.11756989408559083,
+        "ess": 0.5,
+        "ess_solved": true,
+        "stable_conditioning": true,
+        "uplift": 0.06455287337303162,
+        "acquisition": {
+          "all_K_sigma": {
+            "q0": 0.3712734282016754,
+            "q25": 0.5566504597663879,
+            "q50": 0.6276285350322723,
+            "q75": 0.7153436243534088,
+            "q100": 0.9121569395065308
+          },
+          "selected_B_sigma": {
+            "q0": 0.4311484694480896,
+            "q25": 0.6111592948436737,
+            "q50": 0.692181408405304,
+            "q75": 0.7757353782653809,
+            "q100": 0.9121569395065308
+          },
+          "uplift": 0.06455287337303162
+        },
+        "gp": {
+          "n": 256,
+          "kernel_condition": 540.5854320078214,
+          "kernel_effective_rank": 30.636867253375865,
+          "jitter": 0.01
+        }
+      },
+      {
+        "ell_multiplier": 0.5,
+        "ell": 0.24210826720721101,
+        "cap": 512,
+        "beta": 0.11397211040993221,
+        "ess": 0.5,
+        "ess_solved": true,
+        "stable_conditioning": true,
+        "uplift": 0.07143405079841614,
+        "acquisition": {
+          "all_K_sigma": {
+            "q0": 0.32426735758781433,
+            "q25": 0.4825301691889763,
+            "q50": 0.5610149800777435,
+            "q75": 0.6553887724876404,
+            "q100": 0.8870459198951721
+          },
+          "selected_B_sigma": {
+            "q0": 0.3588401973247528,
+            "q25": 0.5401696264743805,
+            "q50": 0.6324490308761597,
+            "q75": 0.7231850028038025,
+            "q100": 0.8870459198951721
+          },
+          "uplift": 0.07143405079841614
+        },
+        "gp": {
+          "n": 512,
+          "kernel_condition": 1539.435534225488,
+          "kernel_effective_rank": 33.80413253431731,
+          "jitter": 0.01
+        }
+      },
+      {
+        "ell_multiplier": 1.0,
+        "ell": 0.48421653441442203,
+        "cap": 256,
+        "beta": 0.02560781883558416,
+        "ess": 0.4999999999999999,
+        "ess_solved": true,
+        "stable_conditioning": true,
+        "uplift": 0.0214841291308403,
+        "acquisition": {
+          "all_K_sigma": {
+            "q0": 0.14917011559009552,
+            "q25": 0.2067766822874546,
+            "q50": 0.23314286023378372,
+            "q75": 0.2731100469827652,
+            "q100": 0.44436830282211304
+          },
+          "selected_B_sigma": {
+            "q0": 0.16273270547389984,
+            "q25": 0.21602189168334007,
+            "q50": 0.254626989364624,
+            "q75": 0.3136197701096535,
+            "q100": 0.44436830282211304
+          },
+          "uplift": 0.0214841291308403
+        },
+        "gp": {
+          "n": 256,
+          "kernel_condition": 9663.315175234022,
+          "kernel_effective_rank": 2.9056422059256484,
+          "jitter": 0.01
+        }
+      },
+      {
+        "ell_multiplier": 1.0,
+        "ell": 0.48421653441442203,
+        "cap": 512,
+        "beta": 0.018082038850863548,
+        "ess": 0.5,
+        "ess_solved": true,
+        "stable_conditioning": true,
+        "uplift": 0.021826937794685364,
+        "acquisition": {
+          "all_K_sigma": {
+            "q0": 0.13283400237560272,
+            "q25": 0.17124197632074356,
+            "q50": 0.19404267519712448,
+            "q75": 0.22951678186655045,
+            "q100": 0.39312076568603516
+          },
+          "selected_B_sigma": {
+            "q0": 0.1414644420146942,
+            "q25": 0.17792276665568352,
+            "q50": 0.21586961299180984,
+            "q75": 0.2676502764225006,
+            "q100": 0.39312076568603516
+          },
+          "uplift": 0.021826937794685364
+        },
+        "gp": {
+          "n": 512,
+          "kernel_condition": 23633.25423538767,
+          "kernel_effective_rank": 2.93900262137117,
+          "jitter": 0.01
+        }
+      }
+    ],
+    "selected": {
+      "ell_multiplier": 0.5,
+      "ell": 0.24210826720721101,
+      "cap": 256,
+      "beta": 0.11756989408559083,
+      "ess": 0.5,
+      "ess_solved": true,
+      "stable_conditioning": true,
+      "uplift": 0.06455287337303162,
+      "acquisition": {
+        "all_K_sigma": {
+          "q0": 0.3712734282016754,
+          "q25": 0.5566504597663879,
+          "q50": 0.6276285350322723,
+          "q75": 0.7153436243534088,
+          "q100": 0.9121569395065308
+        },
+        "selected_B_sigma": {
+          "q0": 0.4311484694480896,
+          "q25": 0.6111592948436737,
+          "q50": 0.692181408405304,
+          "q75": 0.7757353782653809,
+          "q100": 0.9121569395065308
+        },
+        "uplift": 0.06455287337303162
+      },
+      "gp": {
+        "n": 256,
+        "kernel_condition": 540.5854320078214,
+        "kernel_effective_rank": 30.636867253375865,
+        "jitter": 0.01
+      }
+    },
+    "ell_median_uplift": {
+      "0.5": 0.06799346208572388,
+      "1.0": 0.021655533462762833
+    },
+    "cap512_threshold": 0.06429064571857453,
+    "sweep_selected": {
+      "ell_multiplier": 0.5,
+      "ell": 0.24210826720721101,
+      "cap": 512,
+      "beta": 0.11397211040993221,
+      "ess": 0.5,
+      "ess_solved": true,
+      "stable_conditioning": true,
+      "uplift": 0.07143405079841614,
+      "acquisition": {
+        "all_K_sigma": {
+          "q0": 0.32426735758781433,
+          "q25": 0.4825301691889763,
+          "q50": 0.5610149800777435,
+          "q75": 0.6553887724876404,
+          "q100": 0.8870459198951721
+        },
+        "selected_B_sigma": {
+          "q0": 0.3588401973247528,
+          "q25": 0.5401696264743805,
+          "q50": 0.6324490308761597,
+          "q75": 0.7231850028038025,
+          "q100": 0.8870459198951721
+        },
+        "uplift": 0.07143405079841614
+      },
+      "gp": {
+        "n": 512,
+        "kernel_condition": 1539.435534225488,
+        "kernel_effective_rank": 33.80413253431731,
+        "jitter": 0.01
+      }
+    }
+  },
+  "recipe": {
+    "status": "SFM_B1_ALPHA_INNER_EPOCH_SWEEP_DECLARED",
+    "source": {
+      "branch": "codex/sfm-hp10-ood-v2",
+      "commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7",
+      "remote_commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7"
+    },
+    "checkpoint": "/home/dohyun/projects/sfm_hp10_b1_runs/103476d/pretrained_hp10.pt",
+    "checkpoint_sha256": "1b5179c935d3eeff8824967d707d64cc9bab273949ee1f0e4f190172bab1b215",
+    "scene_profile": "double_density_velocity_ood",
+    "rounds": 20,
+    "fixed": {
+      "selector": "margin",
+      "K": 16,
+      "B": 4,
+      "T": 180,
+      "W": 2,
+      "batch": 128,
+      "lr": 0.0001,
+      "optimizer_chunks": 16,
+      "sanity_M": 10,
+      "ess_target": 0.5,
+      "ell": 0.24210826720721101,
+      "cap": 512,
+      "gp_retained_per_round": 256,
+      "gp_quantile": 0.75,
+      "gp_gamma_quota": "rotating 36/37; two-round 73/74"
+    },
+    "factorial": {
+      "alpha": [
+        0.0,
+        0.001,
+        0.01
+      ],
+      "inner_epochs": [
+        1,
+        4,
+        16
+      ]
+    },
+    "preflight_sha256": "d04254396145bb632ffba67222de077067d989b2f57e80e185c2134ad599bc4c",
+    "temperature": {
+      "grid": [
+        0.9,
+        0.95,
+        1.0,
+        1.05,
+        1.1
+      ],
+      "tune_M": 10,
+      "screen_M": 50,
+      "shared_across_gammas": false,
+      "timing": "post-expansion only"
+    },
+    "evaluation": "canonical temperature-1 M10 is recorded at every round; development metrics shortlist four checkpoints; disjoint M10 tunes temperature, one selected-vector M50 screens, and untouched M100 confirms both the locked vector and canonical temperature one",
+    "scheduler": {
+      "slots": [
+        "1a",
+        "3a",
+        "1b",
+        "3b",
+        "1c",
+        "3c",
+        "1d",
+        "3d"
+      ],
+      "workers_per_arm": 8
+    },
+    "runtime_limit_hours": 6.0
+  },
+  "runtime_forecast": {
+    "status": "RUNTIME_GATE_PASS",
+    "measured_train_round_seconds": 340.26520921941847,
+    "measured_M10_seconds": 197.74201764166355,
+    "measured_stage_seconds": {
+      "sfm_stepping": 41.57009543757886,
+      "flow_proposal": 0.25574667379260063,
+      "phi_rbf": 0.5299731893464923,
+      "verifier": 107.58614776935428,
+      "replay": 9.131453479640186,
+      "sanity": 189.7069109994918
+    },
+    "dominant_training_stage": "sanity",
+    "benchmark_rounds": 3,
+    "arm_count": 9,
+    "parallel_slots": [
+      "1a",
+      "3a",
+      "1b",
+      "3b",
+      "1c",
+      "3c",
+      "1d",
+      "3d"
+    ],
+    "workers_per_arm": 8,
+    "parallel_waves": 2,
+    "rounds": 20,
+    "forecast_components": {
+      "training": 14006.092404060066,
+      "candidate_screening": 1977.4201764166355,
+      "final_confirmation": 1977.4201764166355,
+      "multiplicative_headroom": 1.1
+    },
+    "forecast_seconds": 19757.02603258267,
+    "limit_seconds": 21600.0,
+    "source_commit": "e5ab47ba4971aae6c1df710c6d6864577f3728f7",
+    "checkpoint_sha256": "1b5179c935d3eeff8824967d707d64cc9bab273949ee1f0e4f190172bab1b215",
+    "preflight_sha256": "d04254396145bb632ffba67222de077067d989b2f57e80e185c2134ad599bc4c",
+    "scene_profile": "double_density_velocity_ood",
+    "gate_wall_seconds": 1130.504373351112,
+    "logs": [
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner16.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner16.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p01_inner16.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner4.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner4.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p01_inner4.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0_inner1.log",
+      "/data3/research1/sfm_b1_alpha_inner_gate_e5ab47b_20260721/runtime_gate/logs/train_runtime_alpha0p001_inner1.log"
+    ]
+  },
+  "wall_seconds": 1131.1365610715002
+}

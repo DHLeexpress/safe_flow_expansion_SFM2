@@ -1,0 +1,23 @@
+{
+  "bytes": 2710727,
+  "embedded_labels": [
+    "multi_step_safety"
+  ],
+  "episode": 721355562,
+  "fixed_camera": [
+    -0.5,
+    6.5,
+    -0.5,
+    6.5
+  ],
+  "gamma": 0.3,
+  "kind": "raw_generative_policy_branch",
+  "mp4": "/data3/research1/sfm_hp100_cumulative_microblock_2473b01/paper_transition_videos/cumulative_2473b01__last_two_blocks_and_head__C3__r02__g0p3_rep00/cumulative_2473b01__last_two_blocks_and_head__C3__r02__g0p3_rep00__raw_after.mp4",
+  "mp4_sha256": "9d6d399cb84e0c7dc36fda384f6885d72d8ebb4b50f7624e059587aaa83421cf",
+  "outcome": "success",
+  "scene_profile": "double_density_velocity_ood",
+  "show_safety_badge": true,
+  "status": "SFM_HP100_FINAL_PAPER_VIDEO_COMPLETE",
+  "style_version": "sfm_hp100_paper_video_style_v1",
+  "trajectory_validity": 1.0
+}

@@ -1,0 +1,34 @@
+{
+  "status": "AUTHENTICATED_SFM_EXPANSION_CORE_SEMANTIC_DELTA",
+  "base": {
+    "repository": "/Users/dhl/Documents/safeMPPI_demo_3d",
+    "relative_path": "safe_mppi/expansion.py",
+    "head": "5c8a57779f165c583b297b73ab6d8bf90e3f59f5",
+    "worktree_was_dirty": true,
+    "sha256": "b1b50812a3d409646b7220c805ed787b4ae2da3fdf5ac7ec39cfc629bc3e4d68"
+  },
+  "patched_port": {
+    "relative_path": "expansion.py",
+    "sha256": "0f039757e85bc75524e398a8f3bf979bcd573f687f06c27ed088ce485f567cf4"
+  },
+  "semantic_deltas": [
+    "Add opt-in preterminal_resolved_queries archive mode.",
+    "Archive every resolved selected-B query before a lineage terminal event; exact positives form D+ and exact negatives remain truthful D-.",
+    "Retain the original sampled flow base paired with each archived candidate when available.",
+    "Pair preterminal reset scenarios and flow-base lineages across gamma by the same counter-based round/replica/step coordinates.",
+    "Add per-gamma sliding-positive GP modes with strict previous-round causality.",
+    "Exclude exact-negative and verifier-error rows from GP support defensively.",
+    "Balance bounded GP support by gamma, then trajectory/lineage, then uniform time stage rather than query multiplicity.",
+    "Add an opt-in executed-plus-terminal-NVP archive path whose D+ rows are exact-positive sampled H10 proposals selected for first-action execution and whose D- rows are resolved-invalid, explicitly unexecuted terminal counterfactuals.",
+    "Rank a terminal NVP counterfactual D- by the same J_native minus lambda times one-step margin score used for execution.",
+    "Add a frozen-phi, per-gamma sliding GP mode containing only prior-round executed D+ rows, with an optional explicit reference-round window.",
+    "Add an opt-in last-residual-block-plus-head optimizer scope while preserving every legacy optimizer scope.",
+    "Allow a deliberate finite early-acquisition horizon to terminate as EARLY_CUTOFF rather than scientific TIMEOUT.",
+    "Reuse each already-computed posterior covariance for marginal sigma and sequential without-replacement acquisition; this is a fixed-seed-equivalent performance change."
+  ],
+  "unchanged": [
+    "Legacy archive and GP modes remain selectable.",
+    "NVP remains fail-closed and no fallback controller is introduced.",
+    "Verifier labels, execution ranking, dynamics, visualization, and task adapters are not changed by this patch."
+  ]
+}

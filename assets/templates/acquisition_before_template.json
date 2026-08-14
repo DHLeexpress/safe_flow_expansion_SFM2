@@ -1,0 +1,37 @@
+{
+  "bytes": 659132,
+  "center_step": 27,
+  "displayed_B": 16,
+  "embedded_labels": [
+    "multi_step_safety"
+  ],
+  "episode": 721355562,
+  "executed_state_preview": false,
+  "faithful_order": "raw P1 first; uncertainty repair only after exact-negative raw proposal",
+  "fixed_camera": [
+    1.4,
+    4.2,
+    1.1,
+    3.9
+  ],
+  "full_K_paths_available_in_trace": false,
+  "gamma": 0.3,
+  "kind": "conditional_uncertainty_repair_acquisition",
+  "lineage": "g0.3:rep00",
+  "mp4": "/data3/research1/sfm_hp100_cumulative_microblock_2473b01/paper_transition_videos/cumulative_2473b01__last_two_blocks_and_head__C3__r02__g0p3_rep00/cumulative_2473b01__last_two_blocks_and_head__C3__r02__g0p3_rep00__acquisition_before.mp4",
+  "mp4_sha256": "032ba56e69d8f1eedd705d7546ad85378f6f779db939dd5a8f504af38a29e4ba",
+  "past_executed_state_markers": true,
+  "repair_family_display": "final attempted B only",
+  "scene_profile": "double_density_velocity_ood",
+  "scientific_B": 16,
+  "scientific_K": 64,
+  "show_safety_badge": true,
+  "status": "SFM_HP100_FINAL_PAPER_VIDEO_COMPLETE",
+  "step_window": [
+    24,
+    30
+  ],
+  "style_version": "sfm_hp100_paper_video_style_v1",
+  "uncertainty_emphasized_B": 16,
+  "uncertainty_normalization": "per-attempt B min-max"
+}

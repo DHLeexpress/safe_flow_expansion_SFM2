@@ -1,0 +1,132 @@
+{
+  "status": "SFM_HP100_ID_OOD_BRANCH_VIZ_COMPLETE",
+  "trace": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch_trace.pt",
+  "trace_sha256": "d9a68e4c36b18b43fe778a2fbe12c1a70f6142083c7f3ed508efff9d36ecefdb",
+  "checkpoint": "/data3/research1/sfm_hp100_pretrain_e9164e5/pretrained_sfm_hp100.pt",
+  "checkpoint_sha256": "258999ae8ccee8aec5aab92a6f751221d3c15583ac26e0a7ec8311f13316ec44",
+  "selection": {
+    "id_success": {
+      "episode": 150002,
+      "rollout_index": 2,
+      "outcome": "success",
+      "selection": "first_success"
+    },
+    "id_failure": {
+      "episode": 150000,
+      "rollout_index": 0,
+      "outcome": "collision",
+      "selection": "first_collision"
+    },
+    "ood_success": {
+      "episode": 250001,
+      "rollout_index": 1,
+      "outcome": "success",
+      "selection": "first_success"
+    },
+    "ood_failure": {
+      "episode": 250000,
+      "rollout_index": 0,
+      "outcome": "collision",
+      "selection": "first_collision"
+    }
+  },
+  "evaluation": {
+    "id": "/data3/research1/sfm_hp100_id_ood_branch_b659526/id_m50.json",
+    "ood": "/data3/research1/sfm_hp100_id_ood_branch_b659526/ood_m50.json",
+    "id_sha256": "58df71d0a25b801c47f9f0da8077704eddb0b52eda18c072de45cad2c3818961",
+    "ood_sha256": "1708348be707868d93e8e878f069cb66c0605fea33ab1f4319dd3d3cf1b0ce4e",
+    "M_per_gamma": 50,
+    "noise_seed": 20260802,
+    "noise_bank_sha256": "aec8415d6f4140f39ff1d9aa053b80bfb7fdef7c71b1748b7f4051b01d3babf9"
+  },
+  "semantics": {
+    "branch_label": "current raw H10 proposal, independent exact full-H moving-pedestrian certificate under clipped dynamics",
+    "trajectory_validity": "mean terminal-truncated executed-window label along the full trajectory; not the current proposal label",
+    "green_geometry": "candidate-specific analytic verifier faces for every sensed or predicted-entering pedestrian plus exactly 16 artificial outer faces"
+  },
+  "render": {
+    "frames": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48,
+      50,
+      52,
+      54,
+      56,
+      58,
+      60,
+      62,
+      64,
+      66,
+      68,
+      70
+    ],
+    "mp4": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch.mp4",
+    "png": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch_final.png",
+    "snapshots": {
+      "id_success": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/id_success_final_branch.png",
+      "id_failure": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/id_failure_final_branch.png",
+      "ood_success": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/ood_success_final_branch.png",
+      "ood_failure": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/ood_failure_final_branch.png"
+    }
+  },
+  "artifacts": {
+    "trace": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch_trace.pt",
+      "bytes": 1579176,
+      "sha256": "d9a68e4c36b18b43fe778a2fbe12c1a70f6142083c7f3ed508efff9d36ecefdb"
+    },
+    "mp4": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch.mp4",
+      "bytes": 1178636,
+      "sha256": "dd1269a392b3dd14161d2392ad4ee69d278c3bd76253639dac892206370c8547"
+    },
+    "final_png": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/hp100_id_ood_branch_final.png",
+      "bytes": 498517,
+      "sha256": "dca565bc4d8e4f8bcc2b7e600e058debe5cd2c05a9cf9a2a3cbae5bb32afbf77"
+    },
+    "id_success_png": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/id_success_final_branch.png",
+      "bytes": 126870,
+      "sha256": "d0849778fc20c9eae8b90e2de4eecdf32167bbc0da39507fe1500f40ff19fb16"
+    },
+    "id_failure_png": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/id_failure_final_branch.png",
+      "bytes": 83339,
+      "sha256": "392c5f21371cacd6b346c870b98891b617718396f758e209fd3541600eb73758"
+    },
+    "ood_success_png": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/ood_success_final_branch.png",
+      "bytes": 149200,
+      "sha256": "757f601bdb0311829e953b0910d0a10bacf2ba27c6bbd62f6fe36460b4a67da1"
+    },
+    "ood_failure_png": {
+      "path": "/data3/research1/sfm_hp100_id_ood_branch_b659526/branch_viz/ood_failure_final_branch.png",
+      "bytes": 101406,
+      "sha256": "1a3e4815f7fab875277b0283e1d486f764ed2536c1e127152a5dcf05e3ec7d90"
+    }
+  }
+}

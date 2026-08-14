@@ -1,0 +1,33 @@
+{
+  "bytes": 2209952,
+  "episode": 755357831,
+  "execution_rule": "exact-positive max H10 progress; clearance/sigma/index tie-break",
+  "fixed_camera": [
+    -0.5,
+    6.5
+  ],
+  "gamma": 0.5,
+  "kind": "always_on_predictive_execution_rollout",
+  "lineage": "g0.5:rep01",
+  "mp4": "/Users/dhl/Documents/safe_flow_expansion_SFM2/assets/diagnostics/predictive_execution/predictive_progress_success_rollout.mp4",
+  "mp4_sha256": "7d0c3ff96124f1bd43df122a336cf2c5a9f579b5fb2c153b8ff121655374f816",
+  "rollout_stats": {
+    "contexts": 64,
+    "executed_positive_contexts": 64,
+    "executed_realized_failure_contexts": 0,
+    "mean_exact_positive_B32": 26.390625,
+    "mean_selected_H10_progress": 1.0828678160905838,
+    "mean_selected_predicted_clearance": 0.403412128565833,
+    "median_exact_positive_B32": 32.0,
+    "selector_change_fraction": 0.890625,
+    "terminal": "success",
+    "zero_positive_B32_fraction": 0.0
+  },
+  "scene_profile": "double_density_velocity_ood",
+  "scientific_B": 32,
+  "scientific_K": 64,
+  "show_safety_badge": false,
+  "status": "SFM_HP100_PREDICTIVE_EXECUTION_VIZ_COMPLETE",
+  "style_version": "sfm_hp100_paper_video_style_v1",
+  "viz_version": "sfm_hp100_predictive_execution_viz_v1"
+}

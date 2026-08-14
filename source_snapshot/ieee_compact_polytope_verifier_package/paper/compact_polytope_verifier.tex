@@ -1,0 +1,180 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert_2}
+\newcommand{\trans}{^{\mathsf T}}
+\title{Compact Polytope Verifier for Safe MPPI: Variable Tangent Faces, Artificial Anchors, and Margin Bounds}
+\author{\IEEEauthorblockN{Safe Flow Expansion / Pillar 3 Working Note}}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note summarizes a compact verifier polytope for local Safe MPPI rollouts. The nominal repository polytope fixes obstacle-face normals radially. The verifier instead optimizes tangent/separating faces for circular obstacles and artificial boundary anchors. \textbf{The fixed-normal verifier is an LP; the variable circular tangent-face verifier is an SOCP.} We also show that positive weights alone do not reshape independent faces, while explicit margin caps $m_{\max}$ create the desired compact tube-like geometry.
+\end{abstract}
+
+\section{Problem Setting}
+Let $q_0,q_1,\ldots,q_H$ be one local MPPI forward rollout, $H=10$, and let $c=q_0$ be the current robot position.  Define
+\begin{equation}
+    \alpha_t=(1-\gamma)^t,\qquad \beta_t=1-\alpha_t.
+\end{equation}
+A verifier face is written as
+\begin{equation}
+    a_i\trans(x-c)\le m_i,
+\end{equation}
+and the polytope is
+\begin{equation}
+    P=\{x:a_i\trans(x-c)\le m_i,\ i=1,\ldots,N\}.
+\end{equation}
+For a single face, define
+\begin{equation}
+    h_i(x)=\frac{m_i-a_i\trans(x-c)}{m_i}.
+\end{equation}
+The level-set certificate $h_i(q_t)\ge\alpha_t$ is equivalent to
+\begin{equation}
+    a_i\trans(q_t-c)\le\beta_t m_i,
+    \label{eq:traj}
+\end{equation}
+which is linear in the decision variables. \textbf{If every face satisfies \eqref{eq:traj}, then $H_P(q_t)=\min_i h_i(q_t)\ge\alpha_t$ for the full verifier polytope.}
+
+\section{Variable Tangent Faces as an SOCP}
+Assume obstacle $i$ is a disk
+\begin{equation}
+    O_i=\{x:\norm{x-o_i}\le r_i\}.
+\end{equation}
+To ensure that the disk lies outside the verifier face, require
+\begin{equation}
+    a_i\trans(x-c)\ge m_i\quad\forall x\in O_i.
+\end{equation}
+The disk support identity gives
+\begin{equation}
+    \min_{x\in O_i}a_i\trans(x-c)=a_i\trans(o_i-c)-r_i\norm{a_i}.
+\end{equation}
+Thus disk separation is
+\begin{equation}
+    r_i\norm{a_i}\le a_i\trans(o_i-c)-m_i.
+    \label{eq:soc}
+\end{equation}
+\textbf{Equation \eqref{eq:soc} is the mathematical reason the variable tangent-face verifier is an SOCP rather than an LP.}
+
+The compact verifier is
+\begin{align}
+    \max_{\{a_i,m_i\}}\quad
+    &\sum_i w_i m_i \label{eq:socp_obj}\\
+    \text{s.t.}\quad
+    &a_i\trans(q_t-c)\le\beta_t m_i, &&\forall i,t,\label{eq:socp_traj}\\
+    &r_i\norm{a_i}\le a_i\trans(o_i-c)-m_i, &&\forall i,\label{eq:socp_obs}\\
+    &\norm{a_i}\le1, &&\forall i,\label{eq:socp_norm}\\
+    &m_i\ge m_{\min}, &&\forall i.\label{eq:socp_min}
+\end{align}
+The objective and \eqref{eq:socp_traj}, \eqref{eq:socp_min} are linear.  Constraints \eqref{eq:socp_obs} and \eqref{eq:socp_norm} are second-order cone constraints. Therefore \eqref{eq:socp_obj}--\eqref{eq:socp_min} is an SOCP.
+
+\subsection{Unit-Normal Relaxation}
+The nonconvex unit-normal equality $\norm{a_i}=1$ is replaced by the SOC ball $\norm{a_i}\le1$.  If $w_i>0$, $m_i>0$, and no upper margin cap is active, scaling $(a_i,m_i)\mapsto(s a_i,s m_i)$ preserves the homogeneous constraints and improves the objective until $\norm{a_i}=1$. \textbf{Thus the relaxation is not loose for uncapped positive max-margin faces.}
+
+\section{Artificial Boundary Obstacles}
+Let the sensing radius be $R$ and let $K$ boundary-anchor directions be
+\begin{equation}
+    n_\ell=(\cos(2\pi\ell/K),\sin(2\pi\ell/K))\trans.
+\end{equation}
+The apothem of the inscribed $K$-gon is
+\begin{equation}
+    M_K=R\cos(\pi/K).
+\end{equation}
+With artificial radius $\rho_{\rm art}$, place
+\begin{equation}
+    o_\ell^{\rm art}=c+(M_K+\rho_{\rm art})n_\ell,
+    \qquad r_\ell^{\rm art}=\rho_{\rm art}.
+\end{equation}
+The radial tangent face then has margin $M_K$. \textbf{Artificial anchors let the sensing envelope enter the same SOCP as the real pedestrians.}
+
+\section{Why Positive Weights Alone Did Not Change Shape}
+For one independent face per real or artificial obstacle, the feasible set decomposes as a Cartesian product $\mathcal C=\prod_i\mathcal C_i$. Hence
+\begin{equation}
+    \max_{(a_i,m_i)\in\mathcal C_i}\sum_i w_i m_i
+    =\sum_i\max_{(a_i,m_i)\in\mathcal C_i}w_i m_i.
+\end{equation}
+For $w_i>0$, $\arg\max w_i m_i=\arg\max m_i$.  \textbf{Changing positive weights changes the scalar objective, not the geometry, unless the faces are coupled.}
+Fig.~\ref{fig:weight} confirms this behavior in the narrow-gap demo.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/weight_pair_invariance.png}
+    \caption{Positive weight-pair diagnostic. In the separable one-face-per-anchor formulation, positive weights do not change the geometry for fixed $K$ and $\gamma$.}
+    \label{fig:weight}
+\end{figure}
+
+\section{Margin Bounds for Compact Tubes}
+The direct way to impose compact tube-like geometry is to add
+\begin{equation}
+    m_i\le m_{\max}.
+    \label{eq:mmax}
+\end{equation}
+The margin-bounded verifier is
+\begin{align}
+    \max_{\{a_i,m_i\}}\quad &\sum_i w_i m_i\\
+    \text{s.t.}\quad
+    &a_i\trans(q_t-c)\le\beta_t m_i,\\
+    &r_i\norm{a_i}\le a_i\trans(o_i-c)-m_i,\\
+    &\norm{a_i}\le1,\\
+    &m_{\min}\le m_i\le m_{\max}.
+\end{align}
+The added upper bound is linear, so the verifier remains an SOCP. \textbf{$m_{\max}$ is the actual half-width cap: if it is small enough, the pointy wedge is clipped into a tube-like verifier.}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/narrow_gap_nominal_vs_variable.png}
+    \caption{Canonical narrow-gap example. The nominal radial polytope is conservative, while the variable tangent verifier can certify a passage through the gap.}
+    \label{fig:gap}
+\end{figure}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.98\textwidth,height=0.86\textheight,keepaspectratio]{figures/m_bounds_6x3.png}
+    \caption{Margin-bounded verifier sweep. Columns are $\gamma=0.3,0.5,0.8$. Rows are $K=4,8,16$, each with loose bounds $(m_{\min},m_{\max})=(0.03,5.00)$ and tight bounds $(0.03,0.40)$. Gray dashed circles are artificial boundary obstacles; purple circles are real obstacles; black dots are the queried 10-step trajectory.}
+    \label{fig:mbounds}
+\end{figure*}
+
+\section{Demonstration Settings and Results}
+The canonical scene uses $R=2.0$, $H=10$, $\rho_{\rm art}=0.16$, real obstacles at $(0.78,0.55)$ and $(0.78,-0.55)$ with radius $0.35$, and
+\begin{equation}
+    q_t=(1.28t/H,\ 0.035\sin(\pi t/H)),\quad t=0,\ldots,H.
+\end{equation}
+The sweep uses $K\in\{4,8,16\}$ and $\gamma\in\{0.3,0.5,0.8\}$. The loose setting is $(m_{\min},m_{\max})=(0.03,5.00)$, and the tight setting is $(0.03,0.40)$.
+
+\begin{table}[t]
+\centering
+\caption{Mean values over the three $\gamma$ columns. Times are from the 2-D demonstration implementation, which uses a dense angular feasibility scan to visualize the circular tangent-face SOCP blocks.}
+\label{tab:mbounds}
+\begin{tabular}{c l r r r}
+\toprule
+$K$ & Mode & Area & Time [ms] & Mean $m$ real/art \\
+\midrule
+4  & loose & 2.559 & 178.08 & 0.426 / 1.414 \\
+4  & tight & 0.863 & 172.93 & 0.400 / 0.400 \\
+8  & loose & 3.363 & 297.29 & 0.426 / 1.848 \\
+8  & tight & 0.808 & 292.99 & 0.400 / 0.400 \\
+16 & loose & 3.497 & 540.94 & 0.426 / 1.962 \\
+16 & tight & 0.798 & 565.22 & 0.400 / 0.400 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The tight margin cap forces both real and artificial faces to the desired half-width $m_{\max}=0.40$, producing the compact tube-like answer that positive weight tuning could not produce.}
+
+\section{Conclusion}
+The compact verifier polytope should be treated as a conic geometric certificate rather than a fixed radial LP.  \textbf{For circular pedestrians, one variable tangent face per obstacle is an SOCP; artificial boundary anchors remain SOCP; and explicit margin bounds are the right compactness control for tube-shaped certificates.} Future 3-D extensions replace disks by balls and retain the same second-order cone structure.
+
+\begin{thebibliography}{1}
+\bibitem{boyd}
+S. Boyd and L. Vandenberghe, \emph{Convex Optimization}. Cambridge University Press, 2004.
+\bibitem{alizadeh}
+F. Alizadeh and D. Goldfarb, ``Second-order cone programming,'' \emph{Mathematical Programming}, vol. 95, no. 1, pp. 3--51, 2003.
+\end{thebibliography}
+
+\end{document}

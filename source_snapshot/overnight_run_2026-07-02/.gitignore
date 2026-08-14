@@ -1,0 +1,9 @@
+dataset/
+results/
+figures/
+wandb/
+*.log
+__pycache__/
+!results/hp_arch/
+results/hp_arch/*
+!results/hp_arch/res2w256_ft.pt
