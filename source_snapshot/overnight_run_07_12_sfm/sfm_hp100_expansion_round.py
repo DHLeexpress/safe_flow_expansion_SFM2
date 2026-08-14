@@ -433,6 +433,7 @@ def resume_payload(
     archive_ledger: list[dict],
     gp_state: dict,
     baseline_dplus_per_gamma: dict | None = None,
+    optimizer_scope: str = UPD.OPTIMIZER_SCOPE,
 ) -> dict:
     """Everything needed to continue this arm bitwise at round_index + 1."""
     return {
@@ -450,7 +451,9 @@ def resume_payload(
         },
         "model_config": adapter.policy.config(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "encoder_state_sha256": UPD.encoder_state_sha256(adapter),
+        "encoder_state_sha256": UPD.frozen_surface_sha256(
+            adapter, optimizer_scope,
+        ),
         "rng": _rng_snapshot(),
         "gp_state": gp_state,
     }
@@ -490,7 +493,6 @@ def run_recipe(args) -> dict:
     reference = PORT.HP100ExpansionPolicy(reference_policy).eval()
     for parameter in reference.parameters():
         parameter.requires_grad_(False)
-    encoder_r0 = UPD.encoder_state_sha256(reference)
 
     update_config = UPD.UpdateConfig(
         alpha=float(args.alpha),
@@ -500,9 +502,15 @@ def run_recipe(args) -> dict:
         grad_clip_norm=float(args.grad_clip_norm),
         max_relative_parameter_drift=float(args.max_relative_parameter_drift),
         train_mode=str(args.train_mode),
+        optimizer_scope=str(args.optimizer_scope),
         seed=int(args.update_seed),
     )
     update_config.validate()
+    # The asserted-frozen digest is scope-aware: under the reduced scope it
+    # also pins trunk.inp bitwise to the r0 state.
+    encoder_r0 = UPD.frozen_surface_sha256(
+        reference, update_config.optimizer_scope,
+    )
 
     gammas = HYBRID._parse_gammas(args.gammas)
     device = next(reference.parameters()).device
@@ -510,13 +518,18 @@ def run_recipe(args) -> dict:
         resume_state = load_resume(
             args.resume_from, expected_r0_sha256=r0_sha,
         )
-        if resume_state["encoder_state_sha256"] != encoder_r0:
-            raise RuntimeError("resume state encoders drifted from the r0 digest")
-        saved_config = resume_state["recipe_provenance"]["update_config"]
+        saved_config = dict(resume_state["recipe_provenance"]["update_config"])
+        # Resume states written before the scope field existed were implicitly
+        # the full trunk_and_head surface; a declared scope mismatch is still
+        # refused below.  Recipe identity is checked before the digest so a
+        # scope change reports as a recipe mismatch, not encoder drift.
+        saved_config.setdefault("optimizer_scope", UPD.OPTIMIZER_SCOPE)
         if saved_config != asdict(update_config):
             raise RuntimeError(
                 "resume requires the identical declared update recipe"
             )
+        if resume_state["encoder_state_sha256"] != encoder_r0:
+            raise RuntimeError("resume state encoders drifted from the r0 digest")
         gp_state = resume_state["gp_state"]
         features = gp_state["features"].to(device)
         calibration = gp_state["calibration"]
@@ -562,7 +575,9 @@ def run_recipe(args) -> dict:
         "source_sha256": PRED.sha256_file(__file__),
     }
 
-    trainable_parameters, _ = UPD.configure_trainable(adapter)
+    trainable_parameters, _ = UPD.configure_trainable(
+        adapter, update_config.optimizer_scope,
+    )
     optimizer = torch.optim.Adam(
         trainable_parameters, lr=update_config.learning_rate,
     )
@@ -731,6 +746,7 @@ def run_recipe(args) -> dict:
             round_index=round_index,
             alpha=update_config.alpha,
             exposure_passes=update_config.exposure_passes,
+            optimizer_scope=update_config.optimizer_scope,
         ))
         checkpoint_sha = PRED.sha256_file(checkpoint_path)
         resume_path = output / f"resume_r{round_index}.pt"
@@ -741,6 +757,7 @@ def run_recipe(args) -> dict:
             recipe_provenance=recipe_provenance,
             archive_ledger=archive_ledger, gp_state=gp_state,
             baseline_dplus_per_gamma=baseline_dplus_per_gamma,
+            optimizer_scope=update_config.optimizer_scope,
         ))
         marker = {
             "status": ROUND_STATUS,
@@ -923,6 +940,10 @@ def parser() -> argparse.ArgumentParser:
         "--max-relative-parameter-drift", type=float, default=0.25,
     )
     value.add_argument("--train-mode", default="eval", choices=("eval", "train"))
+    value.add_argument(
+        "--optimizer-scope", default=UPD.OPTIMIZER_SCOPE,
+        choices=(UPD.OPTIMIZER_SCOPE, UPD.REDUCED_OPTIMIZER_SCOPE),
+    )
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--scene-profile", default="double_density_velocity_ood")
     value.add_argument("--gammas", default="0.1,0.2,0.3,0.4,0.5,0.7,1.0")

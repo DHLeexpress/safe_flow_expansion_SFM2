@@ -293,3 +293,52 @@ def test_checkpoint_payload_keeps_the_strict_raw_evaluable_schema(tmp_path):
     policy, loaded = GPS.load_sfm_hp100_policy(str(path), device="cpu")
     assert loaded["alpha"] == 0.05
     assert policy.config() == GPS._canonical_config(loaded["config"])
+
+
+def test_reduced_scope_declares_blocks_and_head_only():
+    adapter = _adapter()
+    parameters, names = UPD.configure_trainable(
+        adapter, UPD.REDUCED_OPTIMIZER_SCOPE,
+    )
+    assert tuple(names) == UPD.REDUCED_TRAINABLE_NAMES
+    assert not any(name.startswith("policy.trunk.inp") for name in names)
+    assert sum(parameter.numel() for parameter in parameters) == 269_332
+    # The full surface is unchanged by the reduced declaration.
+    parameters, names = UPD.configure_trainable(adapter, UPD.OPTIMIZER_SCOPE)
+    assert tuple(names) == UPD.FROZEN_TRAINABLE_NAMES
+    assert sum(parameter.numel() for parameter in parameters) == 327_956
+    with pytest.raises(ValueError, match="undeclared optimizer scope"):
+        UPD.configure_trainable(adapter, "head_only")
+    with pytest.raises(ValueError, match="optimizer_scope"):
+        UPD.UpdateConfig(optimizer_scope="head_only").validate()
+
+
+def test_reduced_scope_freezes_trunk_inp_bitwise_while_blocks_and_head_move():
+    adapter = _adapter(seed=6)
+    before = {
+        name: parameter.detach().clone()
+        for name, parameter in adapter.named_parameters()
+    }
+    frozen_before = UPD.frozen_surface_sha256(
+        adapter, UPD.REDUCED_OPTIMIZER_SCOPE,
+    )
+    assert "trunk_inp" in frozen_before
+    assert "trunk_inp" not in UPD.frozen_surface_sha256(
+        adapter, UPD.OPTIMIZER_SCOPE,
+    )
+    metrics = UPD.expansion_update(
+        adapter, _positives(), _negatives(),
+        UPD.UpdateConfig(alpha=0.1, learning_rate=1.0e-3,
+                         optimizer_scope=UPD.REDUCED_OPTIMIZER_SCOPE, seed=2),
+        round_index=1,
+    )
+    assert metrics["accepted"] and metrics["finite"]
+    assert metrics["optimizer_scope"] == UPD.REDUCED_OPTIMIZER_SCOPE
+    assert metrics["trainable_parameters"] == 269_332
+    assert metrics["encoder_state_sha256_after"] == frozen_before
+    for name, parameter in adapter.named_parameters():
+        if name in UPD.REDUCED_TRAINABLE_NAMES:
+            assert not torch.equal(parameter, before[name]), name
+        else:
+            # trunk.inp and every condition encoder stay bitwise frozen.
+            assert torch.equal(parameter, before[name]), name

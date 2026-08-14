@@ -13,6 +13,7 @@ ALPHA="${ALPHA:-0.0}"
 ROUNDS="${ROUNDS:-5}"
 LEARNING_RATE="${LEARNING_RATE:-1e-5}"
 EXPOSURE_PASSES="${EXPOSURE_PASSES:-1}"
+OPTIMIZER_SCOPE="${OPTIMIZER_SCOPE:-trunk_and_head}"
 LINEAGES_PER_GAMMA="${LINEAGES_PER_GAMMA:-8}"
 REUSE_ARCHIVE="${REUSE_ARCHIVE:-}"
 RESUME_FROM="${RESUME_FROM:-}"
@@ -47,6 +48,7 @@ exec "${PYTHON_BIN}" \
   --learning-rate "${LEARNING_RATE}" \
   --batch-size 64 \
   --exposure-passes "${EXPOSURE_PASSES}" \
+  --optimizer-scope "${OPTIMIZER_SCOPE}" \
   --grad-clip-norm 1.0 \
   --max-relative-parameter-drift 0.25 \
   --train-mode eval \

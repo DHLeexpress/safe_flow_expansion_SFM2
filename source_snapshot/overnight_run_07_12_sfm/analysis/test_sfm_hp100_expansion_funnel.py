@@ -227,3 +227,70 @@ def test_shortlist_without_id_screen_skips_the_id_guard(tmp_path):
     row["id"] = None
     shortlist = SEARCH.select_shortlist(contract, [row], r0_ood=r0_ood)
     assert [entry["label"] for entry in shortlist] == ["ood-only"]
+
+
+def test_declared_recipes_v2_cross_exposure_with_the_two_surfaces():
+    recipes = SEARCH.declared_recipes_v2()
+    assert [recipe.recipe_id for recipe in recipes] == [
+        "E1", "E4", "E16", "E1R", "E4R", "E16R",
+    ]
+    assert len({recipe.recipe_id for recipe in recipes}) == 6
+    assert [recipe.exposure_passes for recipe in recipes] == [1, 4, 16] * 2
+    assert [recipe.optimizer_scope for recipe in recipes] == (
+        ["trunk_and_head"] * 3 + ["last_two_blocks_and_head"] * 3
+    )
+    for recipe in recipes:
+        assert recipe.alpha == 0.0
+        assert recipe.learning_rate == 1.0e-5
+        assert recipe.rounds == 5
+    # v1 recipes are implicitly the full surface.
+    assert all(
+        recipe.optimizer_scope == "trunk_and_head"
+        for recipe in SEARCH.declared_recipes()
+    )
+
+
+def test_contract_v2_amends_recipes_only_and_still_shortlists(tmp_path):
+    v1_path = tmp_path / "SEARCH_CONTRACT.json"
+    v1 = SEARCH.write_contract(v1_path, r0_sha256="a" * 64)
+    v2_path = tmp_path / "SEARCH_CONTRACT_V2.json"
+    with pytest.raises(FileNotFoundError, match="superseded"):
+        SEARCH.write_contract_v2(
+            v2_path, r0_sha256="a" * 64,
+            amendment_of=tmp_path / "missing.json", reason="x",
+        )
+    with pytest.raises(ValueError, match="recorded reason"):
+        SEARCH.write_contract_v2(
+            v2_path, r0_sha256="a" * 64, amendment_of=v1_path, reason="   ",
+        )
+    contract = SEARCH.write_contract_v2(
+        v2_path, r0_sha256="a" * 64, amendment_of=v1_path,
+        reason="add the reduced last_two_blocks_and_head surface arms",
+    )
+    assert contract["status"] == SEARCH.CONTRACT_STATUS
+    assert len(contract["recipes"]) == 6
+    amendment = contract["amendment"]
+    assert amendment["supersedes"] == str(v1_path.resolve())
+    assert amendment["supersedes_sha256"] == SEARCH.sha256_file(v1_path)
+    assert amendment["declared_before_confirmation_read"] is True
+    # Guards, banks, ranking, and shortlist size are unchanged from v1.
+    for key in (
+        "sr_guard", "timeout_guard", "time_guard_seconds",
+        "per_gamma_cr_collapse", "per_gamma_validity_collapse",
+        "shortlist_size", "ranking_key", "banks", "r0_sha256",
+    ):
+        assert contract[key] == v1[key]
+    # The amended contract feeds select_shortlist unchanged.
+    shortlist = SEARCH.select_shortlist(
+        contract,
+        [_dev_row("E4R_r2", "2" * 64, cr=0.30, validity=0.55, clearance=0.2)],
+        r0_ood={"SR": 0.56, "CR": 0.4371, "timeout": 0.0029,
+                "Validity": 0.4769},
+        r0_id={"SR": 0.9571, "CR": 0.0429, "timeout": 0.0,
+               "Validity": 0.7906},
+    )
+    assert [row["label"] for row in shortlist] == ["E4R_r2"]
+    with pytest.raises(FileExistsError, match="redeclare"):
+        SEARCH.write_contract_v2(
+            v2_path, r0_sha256="a" * 64, amendment_of=v1_path, reason="y",
+        )

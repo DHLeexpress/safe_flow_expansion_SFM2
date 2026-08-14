@@ -12,6 +12,11 @@ Qualification (run once, before the sweep) compares alpha=0 against
 alpha=0.05 on the identical shared round-1 archive; alpha=0.05 survives into
 later arms only under the declared retention rule below.
 
+The amended v2 sweep (``declared_recipes_v2``) crosses the same E values with
+the two declared trainable surfaces — full ``trunk_and_head`` (``E{n}``) and
+reduced ``last_two_blocks_and_head`` (``E{n}R``, trunk.inp frozen) — with
+alpha, learning rate, rounds, guards, banks, and ranking unchanged.
+
 Every recipe is declared in source and frozen into a written
 ``SEARCH_CONTRACT.json`` *before* any shortlist or confirmation bank is read.
 Shortlisting happens on the M20 screening bank, finalists are evaluated once
@@ -84,6 +89,9 @@ class Recipe:
     exposure_passes: int
     learning_rate: float
     rounds: int
+    # Declared trainable surface; the reduced last_two_blocks_and_head arm
+    # leaves trunk.inp frozen alongside the condition encoders.
+    optimizer_scope: str = "trunk_and_head"
     replay: str = (
         "E complete reshuffled passes over D+ per round, no oversampling, "
         "full_set_mean negative mass, cumulative rounds with persistent Adam"
@@ -101,6 +109,22 @@ def declared_recipes() -> tuple[Recipe, ...]:
     )
 
 
+def declared_recipes_v2() -> tuple[Recipe, ...]:
+    """The amended sweep space: the E sweep crossed with the two declared
+    trainable surfaces.  ``E{n}`` arms train ``trunk_and_head``; ``E{n}R``
+    arms train the reduced ``last_two_blocks_and_head`` surface."""
+    return tuple(
+        Recipe(
+            f"E{exposure}{suffix}", SWEEP_ALPHA, exposure,
+            SWEEP_LEARNING_RATE, SWEEP_ROUNDS, optimizer_scope=scope,
+        )
+        for scope, suffix in (
+            ("trunk_and_head", ""), ("last_two_blocks_and_head", "R"),
+        )
+        for exposure in SWEEP_EXPOSURE_PASSES
+    )
+
+
 def qualification_recipes() -> tuple[Recipe, ...]:
     """One-shot alpha comparison on the identical shared round-1 archive."""
     return (
@@ -109,25 +133,20 @@ def qualification_recipes() -> tuple[Recipe, ...]:
     )
 
 
-def write_contract(
-    path: str | Path,
+def _contract_payload(
+    recipes: tuple[Recipe, ...],
     *,
     r0_sha256: str,
-    sr_guard: float = SR_GUARD,
-    timeout_guard: float = TIMEOUT_GUARD,
-    time_guard_seconds: float = TIME_GUARD_SECONDS,
+    sr_guard: float,
+    timeout_guard: float,
+    time_guard_seconds: float,
 ) -> dict:
-    """Freeze recipes, banks, ranking, guards, and shortlist size before any run."""
     assert_declared_banks_static()
-    path = Path(path).resolve()
-    if path.exists():
-        raise FileExistsError(f"refusing to redeclare an existing contract: {path}")
     if len(str(r0_sha256)) != 64:
         raise ValueError("the contract requires the full r0 SHA-256")
-    recipes = declared_recipes()
     if len({recipe.recipe_id for recipe in recipes}) != len(recipes):
         raise ValueError("recipe ids must be unique")
-    contract = {
+    return {
         "status": CONTRACT_STATUS,
         "version": VERSION,
         "r0_sha256": str(r0_sha256).lower(),
@@ -149,12 +168,80 @@ def write_contract(
         "per_gamma_validity_collapse": float(PER_GAMMA_VALIDITY_COLLAPSE),
         "locked_winner": None,
     }
+
+
+def _write_contract_file(path: Path, contract: dict) -> None:
+    if path.exists():
+        raise FileExistsError(f"refusing to redeclare an existing contract: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(
         json.dumps(contract, indent=2, sort_keys=True, allow_nan=False) + "\n"
     )
     temporary.replace(path)
+
+
+def write_contract(
+    path: str | Path,
+    *,
+    r0_sha256: str,
+    sr_guard: float = SR_GUARD,
+    timeout_guard: float = TIMEOUT_GUARD,
+    time_guard_seconds: float = TIME_GUARD_SECONDS,
+) -> dict:
+    """Freeze recipes, banks, ranking, guards, and shortlist size before any run."""
+    path = Path(path).resolve()
+    contract = _contract_payload(
+        declared_recipes(), r0_sha256=r0_sha256, sr_guard=sr_guard,
+        timeout_guard=timeout_guard, time_guard_seconds=time_guard_seconds,
+    )
+    _write_contract_file(path, contract)
+    return contract
+
+
+def write_contract_v2(
+    path: str | Path,
+    *,
+    r0_sha256: str,
+    amendment_of: str | Path,
+    reason: str,
+    sr_guard: float = SR_GUARD,
+    timeout_guard: float = TIMEOUT_GUARD,
+    time_guard_seconds: float = TIME_GUARD_SECONDS,
+) -> dict:
+    """Amended contract: the 6-recipe surface-crossed sweep, guards unchanged.
+
+    Legal only while no shortlist/confirmation bank has been read for the
+    amended recipes; the amendment block records the superseded contract and
+    the reason so the change is declared, never silent.
+    """
+    path = Path(path).resolve()
+    amendment_of = Path(amendment_of).resolve()
+    if not amendment_of.is_file():
+        raise FileNotFoundError(
+            f"the amended contract must reference the superseded one: "
+            f"{amendment_of}"
+        )
+    superseded = json.loads(amendment_of.read_text())
+    if superseded.get("status") not in {CONTRACT_STATUS, LOCK_STATUS}:
+        raise ValueError("amendment_of is not a declared search contract")
+    if not str(reason).strip():
+        raise ValueError("an amendment requires a recorded reason")
+    contract = _contract_payload(
+        declared_recipes_v2(), r0_sha256=r0_sha256, sr_guard=sr_guard,
+        timeout_guard=timeout_guard, time_guard_seconds=time_guard_seconds,
+    )
+    contract["amendment"] = {
+        "supersedes": str(amendment_of),
+        "supersedes_sha256": sha256_file(amendment_of),
+        "reason": str(reason),
+        "scope": (
+            "recipes only: guards, banks, ranking key, and shortlist size "
+            "are unchanged from the superseded contract"
+        ),
+        "declared_before_confirmation_read": True,
+    }
+    _write_contract_file(path, contract)
     return contract
 
 
@@ -309,6 +396,14 @@ def parser() -> argparse.ArgumentParser:
     declare.add_argument(
         "--time-guard-seconds", type=float, default=TIME_GUARD_SECONDS,
     )
+    declare_v2 = sub.add_parser(
+        "declare-v2",
+        help="write the amended 6-recipe (surface-crossed) search contract",
+    )
+    declare_v2.add_argument("--contract", required=True)
+    declare_v2.add_argument("--r0-sha256", required=True)
+    declare_v2.add_argument("--amendment-of", required=True)
+    declare_v2.add_argument("--reason", required=True)
     lock = sub.add_parser("lock", help="lock the single M100 winner")
     lock.add_argument("--contract", required=True)
     lock.add_argument("--winner-label", required=True)
@@ -330,6 +425,16 @@ def main(argv=None) -> int:
         print(json.dumps({
             "status": contract["status"],
             "recipes": len(contract["recipes"]),
+        }, sort_keys=True))
+    elif args.command == "declare-v2":
+        contract = write_contract_v2(
+            args.contract, r0_sha256=args.r0_sha256,
+            amendment_of=args.amendment_of, reason=args.reason,
+        )
+        print(json.dumps({
+            "status": contract["status"],
+            "recipes": len(contract["recipes"]),
+            "amendment": contract["amendment"]["supersedes"],
         }, sort_keys=True))
     else:
         contract = lock_winner(

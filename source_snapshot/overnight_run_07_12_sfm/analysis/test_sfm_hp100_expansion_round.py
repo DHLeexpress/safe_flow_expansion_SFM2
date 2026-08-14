@@ -333,3 +333,96 @@ def test_qualification_audit_collects_the_declared_evidence():
     assert round_audit["loss"]["per_pass_positive_loss"] == [0.5] * 4
     assert round_audit["drift"]["accepted"] is True
     assert "never count as evaluation" in audit["note"]
+
+
+def _patched_healthy_environment(tmp_path, monkeypatch):
+    def _fake_load(path, device="cpu"):
+        torch.manual_seed(11)
+        return GPS.build_sfm_hp100_policy(), {"scientific_status": "test"}
+
+    checkpoint = tmp_path / "r0.pt"
+    torch.save({"state_dict": _adapter(11).policy.state_dict()}, checkpoint)
+    import sfm_hp100_predictive_execution as PRED
+    sha = PRED.sha256_file(checkpoint)
+
+    monkeypatch.setattr(ROUND.GPS, "load_sfm_hp100_policy", _fake_load)
+    monkeypatch.setattr(
+        ROUND.BASE, "_gpu_contract", lambda device, gpu: {"device": device},
+    )
+    monkeypatch.setattr(
+        ROUND.BASE, "calibration_features",
+        lambda *a, **k: (torch.randn(50, 8), {"count": 50}),
+    )
+    monkeypatch.setattr(ROUND, "mean_pairwise_lengthscale", lambda f: 1.0)
+    monkeypatch.setattr(
+        ROUND.HYBRID, "_calibration_support_by_gamma", lambda *a, **k: {},
+    )
+
+    class _FakeTask:
+        def __init__(self, **kwargs):
+            pass
+
+        def attach_context_encoder(self, policy):
+            return self
+
+    monkeypatch.setattr(ROUND.PORT, "SFMHP100ExpansionTask", _FakeTask)
+
+    @contextlib.contextmanager
+    def _fake_verifier(task, workers):
+        yield object()
+
+    monkeypatch.setattr(
+        ROUND.HYBRID, "_OrderedSidecarVerifier", _fake_verifier,
+    )
+    healthy = _healthy_rows()
+    monkeypatch.setattr(
+        ROUND.ARCH, "gather_round",
+        lambda *a, **k: {
+            "rows": list(healthy),
+            "sample_counts": ROUND.ARCH._sample_counts(healthy),
+            "block_summaries": _summaries(),
+            "trace_shards": [],
+        },
+    )
+    monkeypatch.setattr(ROUND.ARCH, "assert_bank_disjoint", lambda rows: None)
+    return checkpoint, sha
+
+
+def _healthy_run_args(tmp_path, checkpoint, sha, *extra):
+    return ROUND.parser().parse_args([
+        "--checkpoint", str(checkpoint),
+        "--expected-checkpoint-sha256", sha,
+        "--pretrain-dataset-root", str(tmp_path / "unused"),
+        "--expected-pretrain-dataset-manifest-sha256", "0" * 64,
+        "--output", str(tmp_path / "arm"),
+        "--recipe-id", "E1",
+        "--device", "cpu", "--gammas", "0.1,1.0",
+        "--lineages-per-gamma", "1", "--seed", "3",
+        *extra,
+    ])
+
+
+def test_resume_refuses_an_optimizer_scope_mismatch(tmp_path, monkeypatch):
+    checkpoint, sha = _patched_healthy_environment(tmp_path, monkeypatch)
+    final = ROUND.run_recipe(
+        _healthy_run_args(tmp_path, checkpoint, sha, "--rounds", "1"),
+    )
+    assert final["accepted"] and final["rounds_completed"] == 1
+    resume = tmp_path / "arm" / "resume_r1.pt"
+    assert resume.is_file()
+    with pytest.raises(RuntimeError, match="identical declared update recipe"):
+        ROUND.run_recipe(_healthy_run_args(
+            tmp_path, checkpoint, sha, "--rounds", "2",
+            "--resume-from", str(resume),
+            "--optimizer-scope", UPD.REDUCED_OPTIMIZER_SCOPE,
+        ))
+    # The identical scope resumes past the identity check and completes r2.
+    resumed = ROUND.run_recipe(_healthy_run_args(
+        tmp_path, checkpoint, sha, "--rounds", "2",
+        "--resume-from", str(resume),
+    ))
+    assert resumed["rounds_completed"] == 2
+    marker = json.loads(
+        (tmp_path / "arm" / "ROUND_2_COMPLETE.json").read_text()
+    )
+    assert marker["update"]["optimizer_scope"] == UPD.OPTIMIZER_SCOPE

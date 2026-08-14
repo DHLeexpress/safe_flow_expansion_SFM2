@@ -12,9 +12,11 @@ the negative term over the entire D- set, so D- carries total objective mass
 exactly ``alpha`` regardless of its cardinality and no rare negative silently
 receives arbitrary mass through oversampling.
 
-The trainable surface is the complete flow trunk plus head
-(``trunk.inp + blocks[0] + blocks[1] + head``); every condition encoder is
-frozen and its state digest is asserted bitwise before and after each round.
+The default trainable surface is the complete flow trunk plus head
+(``trunk.inp + blocks[0] + blocks[1] + head``); the declared reduced arm
+(``last_two_blocks_and_head``) leaves ``trunk.inp`` frozen as well.  Every
+frozen entry — all condition encoders, plus ``trunk.inp`` under the reduced
+scope — has its state digest asserted bitwise before and after each round.
 """
 from __future__ import annotations
 
@@ -52,6 +54,22 @@ FROZEN_TRAINABLE_NAMES = (
     "policy.trunk.inp.0.bias",
     "policy.trunk.inp.0.weight",
 )
+# Declared reduced surface: both residual blocks plus head with the trunk
+# input layer left frozen alongside the condition encoders.  The scope name
+# is the frozen adapter's own "last_two_blocks_and_head"; on the two-block
+# HP100 trunk that is exactly blocks[0] + blocks[1] + head.
+REDUCED_OPTIMIZER_SCOPE = "last_two_blocks_and_head"
+REDUCED_TRAINABLE_PARAMETER_COUNT = 269_332
+REDUCED_TRAINABLE_NAMES = tuple(
+    name for name in FROZEN_TRAINABLE_NAMES
+    if not name.startswith("policy.trunk.inp.")
+)
+DECLARED_TRAINABLE_SURFACES = {
+    OPTIMIZER_SCOPE: (FROZEN_TRAINABLE_NAMES, TRAINABLE_PARAMETER_COUNT),
+    REDUCED_OPTIMIZER_SCOPE: (
+        REDUCED_TRAINABLE_NAMES, REDUCED_TRAINABLE_PARAMETER_COUNT,
+    ),
+}
 NEGATIVE_LOSS_ABORT_FACTOR = 10.0
 
 
@@ -73,6 +91,9 @@ class UpdateConfig:
     # inactive, deterministic gradients); pretraining used train mode.  The
     # choice is declared here rather than inherited silently.
     train_mode: str = "eval"
+    # Declared trainable surface: the full trunk_and_head default, or the
+    # reduced last_two_blocks_and_head arm that leaves trunk.inp frozen.
+    optimizer_scope: str = OPTIMIZER_SCOPE
     seed: int = 2
 
     def validate(self) -> None:
@@ -93,26 +114,34 @@ class UpdateConfig:
             raise ValueError("relative drift gate must lie in (0,1)")
         if self.train_mode not in {"eval", "train"}:
             raise ValueError("train_mode must be eval or train")
+        if self.optimizer_scope not in DECLARED_TRAINABLE_SURFACES:
+            raise ValueError(
+                "optimizer_scope must be one of "
+                f"{sorted(DECLARED_TRAINABLE_SURFACES)}"
+            )
 
 
 def configure_trainable(
     adapter: PORT.HP100ExpansionPolicy,
+    scope: str = OPTIMIZER_SCOPE,
 ) -> tuple[list[torch.nn.Parameter], list[str]]:
-    """Apply the declared trunk_and_head scope and prove its exact surface."""
-    parameters = adapter.expansion_optimizer_parameters(OPTIMIZER_SCOPE)
+    """Apply one declared optimizer scope and prove its exact surface."""
+    if scope not in DECLARED_TRAINABLE_SURFACES:
+        raise ValueError(f"undeclared optimizer scope: {scope!r}")
+    declared_names, declared_count = DECLARED_TRAINABLE_SURFACES[scope]
+    parameters = adapter.expansion_optimizer_parameters(scope)
     names = sorted(
         name for name, parameter in adapter.named_parameters()
         if parameter.requires_grad
     )
-    if tuple(names) != FROZEN_TRAINABLE_NAMES:
+    if tuple(names) != declared_names:
         raise RuntimeError(
-            f"trainable surface drifted: {names} != {list(FROZEN_TRAINABLE_NAMES)}"
+            f"trainable surface drifted: {names} != {list(declared_names)}"
         )
     count = sum(parameter.numel() for parameter in parameters)
-    if count != TRAINABLE_PARAMETER_COUNT:
+    if count != declared_count:
         raise RuntimeError(
-            f"trunk_and_head parameter count drifted: {count} != "
-            f"{TRAINABLE_PARAMETER_COUNT}"
+            f"{scope} parameter count drifted: {count} != {declared_count}"
         )
     return parameters, names
 
@@ -137,6 +166,37 @@ def encoder_state_sha256(adapter: PORT.HP100ExpansionPolicy) -> dict:
         **{module: digest.hexdigest() for module, digest in sorted(grouped.items())},
         "combined": combined.hexdigest(),
     }
+
+
+def frozen_surface_sha256(
+    adapter: PORT.HP100ExpansionPolicy,
+    scope: str = OPTIMIZER_SCOPE,
+) -> dict:
+    """Bitwise digest of everything the declared scope must leave untouched.
+
+    Always covers every condition encoder; when the reduced scope excludes
+    ``trunk.inp`` that layer joins the asserted-frozen set under its own
+    ``trunk_inp`` key.
+    """
+    if scope not in DECLARED_TRAINABLE_SURFACES:
+        raise ValueError(f"undeclared optimizer scope: {scope!r}")
+    digest = encoder_state_sha256(adapter)
+    if scope == REDUCED_OPTIMIZER_SCOPE:
+        trunk_inp = hashlib.sha256()
+        seen = False
+        for name, tensor in sorted(adapter.policy.state_dict().items()):
+            if not name.startswith("trunk.inp."):
+                continue
+            seen = True
+            value = tensor.detach().cpu().contiguous()
+            trunk_inp.update(name.encode())
+            trunk_inp.update(str(value.dtype).encode())
+            trunk_inp.update(np.asarray(value.shape, dtype=np.int64).tobytes())
+            trunk_inp.update(value.numpy().tobytes())
+        if not seen:
+            raise RuntimeError("policy exposes no trunk.inp state to freeze")
+        digest["trunk_inp"] = trunk_inp.hexdigest()
+    return digest
 
 
 def _validate_roles(positives, negatives) -> None:
@@ -188,9 +248,11 @@ def expansion_update(
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")
     _validate_roles(positives, negatives)
-    parameters, trainable_names = configure_trainable(adapter)
+    parameters, trainable_names = configure_trainable(
+        adapter, config.optimizer_scope,
+    )
     device = parameters[0].device
-    encoder_before = encoder_state_sha256(adapter)
+    encoder_before = frozen_surface_sha256(adapter, config.optimizer_scope)
     before = HYBRID._parameter_snapshot(parameters)
     getattr(adapter, config.train_mode)()
 
@@ -346,9 +408,12 @@ def expansion_update(
     )
     if not accepted:
         HYBRID._restore_parameters(parameters, before)
-    encoder_after = encoder_state_sha256(adapter)
+    encoder_after = frozen_surface_sha256(adapter, config.optimizer_scope)
     if encoder_after != encoder_before:
-        raise RuntimeError("a frozen condition encoder changed during the update")
+        raise RuntimeError(
+            "a frozen surface entry (condition encoder or excluded trunk.inp) "
+            "changed during the update"
+        )
 
     positive_loss_mean = float(np.mean(positive_losses)) if positive_losses else None
     negative_loss_mean = float(np.mean(negative_losses)) if negative_losses else None
@@ -368,9 +433,10 @@ def expansion_update(
         "version": VERSION,
         "config": asdict(config),
         "round": int(round_index),
-        "optimizer_scope": OPTIMIZER_SCOPE,
+        "optimizer_scope": config.optimizer_scope,
         "trainable_names": list(trainable_names),
-        "trainable_parameters": TRAINABLE_PARAMETER_COUNT,
+        "trainable_parameters":
+            DECLARED_TRAINABLE_SURFACES[config.optimizer_scope][1],
         "steps": int(steps),
         "adam_steps": int(steps),
         "exposure_passes_declared": int(config.exposure_passes),
@@ -437,8 +503,11 @@ def checkpoint_payload(
     round_index: int,
     alpha: float,
     exposure_passes: int = 1,
+    optimizer_scope: str = OPTIMIZER_SCOPE,
 ) -> dict:
     """Strict HP100 checkpoint schema so the raw evaluator loads it unchanged."""
+    if optimizer_scope not in DECLARED_TRAINABLE_SURFACES:
+        raise ValueError(f"undeclared optimizer scope: {optimizer_scope!r}")
     return {
         "scientific_status": "SFM2_PREDICTIVE_EXPANSION_ROUND",
         "state_dict": {
@@ -448,7 +517,7 @@ def checkpoint_payload(
         "config": adapter.policy.config(),
         "parent_checkpoint_sha256": str(parent_checkpoint_sha256),
         "pretrained_checkpoint_sha256": str(pretrained_checkpoint_sha256),
-        "optimizer_scope": OPTIMIZER_SCOPE,
+        "optimizer_scope": str(optimizer_scope),
         "round": int(round_index),
         "alpha": float(alpha),
         "exposure_passes": int(exposure_passes),
