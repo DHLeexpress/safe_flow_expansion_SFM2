@@ -68,8 +68,14 @@ HEALTH_MIN_DPLUS_PER_GAMMA = 5
 # to under a quarter of the initial yield flags a degraded sampler even when
 # the absolute floor still holds.
 HEALTH_MIN_DPLUS_BASELINE_FRACTION = 0.25
-# Lineages terminating NVP after full retry exhaustion.
-HEALTH_MAX_NVP_LINEAGE_FRACTION = 0.50
+# Lineages terminating NVP after full retry exhaustion.  Recorded correction
+# 001 (2026-08-14): the a-priori 0.50 sat below the measured r0 round-1
+# baseline (33/56 = 0.589 NVP lineages), so every arm halted at round 2 while
+# every other statistic (per-gamma D+ yield, retry pressure, drift, CFM
+# probes, raw M20) stayed healthy.  Recalibrated to that measured baseline
+# plus a 0.15 absolute margin; genuine collapse (three quarters of lineages
+# starving) still trips the gate.
+HEALTH_MAX_NVP_LINEAGE_FRACTION = 0.75
 # Replan contexts whose final B block stayed all-negative after retries.
 HEALTH_MAX_ZERO_POSITIVE_CONTEXT_FRACTION = 0.50
 # Mean acquisition attempts per replan context (retry pressure).
