@@ -152,11 +152,13 @@ def test_full_set_mean_gives_duplicated_negatives_no_extra_mass():
         UPD.UpdateConfig(alpha=0.5, learning_rate=1.0e-5, seed=2),
         round_index=1,
     )
+    # Duplicating the D- set is mass-invariant analytically; float32 reduction
+    # order across torch builds shifts the mean by ~1e-7, so bound only that.
     assert doubled["negative_loss_mean"] == pytest.approx(
-        single["negative_loss_mean"], abs=1.0e-9,
+        single["negative_loss_mean"], abs=1.0e-6,
     )
     assert doubled["objective_mean"] == pytest.approx(
-        single["objective_mean"], abs=1.0e-9,
+        single["objective_mean"], abs=1.0e-6,
     )
     assert doubled["duplicate_exposures"] == 2
 
