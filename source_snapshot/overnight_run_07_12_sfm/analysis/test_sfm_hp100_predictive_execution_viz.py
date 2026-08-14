@@ -105,3 +105,54 @@ def test_case_screen_fails_closed_when_too_few_events():
         assert "only 1 events" in str(error)
     else:
         raise AssertionError("case selection must fail closed")
+
+
+def acquisition_trace():
+    statuses = {
+        (.1, 0): "success", (.1, 1): "collision",
+        (.5, 0): "nvp", (.5, 1): "success",
+        (1.0, 0): "success", (1.0, 1): "success",
+    }
+    scenario = {0: 101, 1: 202}
+    events = []
+    outcomes = {}
+    for (gamma, replica), status in statuses.items():
+        lineage = f"g{gamma:g}:rep{replica:02d}"
+        rows = [
+            {
+                "lineage": lineage, "step": step,
+                "gamma": gamma, "scenario_id": scenario[replica],
+            }
+            for step in range(replica + 1)
+        ]
+        events.extend(rows)
+        outcomes[lineage] = {
+            "gamma": gamma, "replica": replica,
+            "scenario_id": scenario[replica], "status": status,
+            "executed_steps": replica + 1,
+        }
+    return {"events": events, "outcomes": outcomes}
+
+
+def test_acquisition_grid_preserves_requested_gamma_and_replica_order():
+    trace = acquisition_trace()
+    grid = V.acquisition_grid_lineages(
+        trace, gammas=(1.0, .1, .5), replicas=(1, 0),
+    )
+    assert [[lineage for lineage, _ in row] for row in grid] == [
+        ["g1:rep01", "g0.1:rep01", "g0.5:rep01"],
+        ["g1:rep00", "g0.1:rep00", "g0.5:rep00"],
+    ]
+
+
+def test_acquisition_grid_outcomes_reports_exact_six_lineage_rates():
+    trace = acquisition_trace()
+    grid = V.acquisition_grid_lineages(trace)
+    result = V.acquisition_grid_outcomes(trace, grid)
+    assert result["total"] == 6
+    assert result["success"] == 4
+    assert result["collision"] == 1
+    assert result["nvp"] == 1
+    assert result["timeout"] == 0
+    assert np.isclose(result["rates"]["success"], 4 / 6)
+    assert result["per_gamma"]["1"]["success"] == 2

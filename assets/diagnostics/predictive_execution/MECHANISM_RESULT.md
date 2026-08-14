@@ -60,11 +60,31 @@ realized-failure negative is part of the next replay contract. No performance
 claim should be made until an updated checkpoint passes independent raw
 M10/M50/M100 evaluation.
 
+### Complete paired six-lineage audit
+
+The [2 x 3 full acquisition video](predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4)
+shows scenarios `40192750` and `755357831` from their first context through
+their terminal outcome at `gamma in {0.1, 0.5, 1.0}`. It does not subsample
+closed-loop steps: every video frame corresponds to one acquired execution
+context. The paired outcomes were:
+
+| gamma | Success | Collision | NVP | Timeout |
+|---:|---:|---:|---:|---:|
+| 0.1 | 1/2 | 1/2 | 0/2 | 0/2 |
+| 0.5 | 1/2 | 0/2 | 1/2 | 0/2 |
+| 1.0 | 2/2 | 0/2 | 0/2 | 0/2 |
+| **Pooled** | **4/6 (66.67%)** | **1/6 (16.67%)** | **1/6 (16.67%)** | **0/6** |
+
+This is a mechanism audit of uncertainty tilting plus prediction-based
+execution. It is neither an independent raw-policy evaluation nor evidence of
+an updated policy.
+
 ## Visual evidence
 
 - [Successful predictive rollout](predictive_progress_success_rollout.mp4)
 - [Five fixed-screen selector cases](predictive_vs_max_margin_cases.mp4)
 - [Five-case montage](predictive_vs_max_margin_cases_montage.png)
+- [Two paired episodes across three gammas](predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4)
 
 The case screen was frozen before rendering: current nearest pedestrian
 clearance at most 0.5 m, at least four exact positives in B32, selectors differ,

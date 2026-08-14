@@ -1,0 +1,141 @@
+{
+  "bytes": 7580963,
+  "execution_rule": "exact-positive max H10 progress; clearance/sigma/index tie-break",
+  "fixed_camera": [
+    -0.5,
+    6.5
+  ],
+  "frame_stride": 1,
+  "gammas": [
+    0.1,
+    0.5,
+    1.0
+  ],
+  "kind": "always_on_predictive_acquisition_grid",
+  "mp4": "/Users/dhl/Documents/safe_flow_expansion_SFM2/assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4",
+  "mp4_sha256": "619723d725088148effb6f9905c3163ccd7061fa11df9c53ae4810b110900c56",
+  "outcomes": {
+    "collision": 1,
+    "lineages": [
+      {
+        "contexts": 79,
+        "executed_steps": 79,
+        "gamma": 0.1,
+        "lineage": "g0.1:rep00",
+        "replica": 0,
+        "scenario_id": 40192750,
+        "status": "success"
+      },
+      {
+        "contexts": 14,
+        "executed_steps": 13,
+        "gamma": 0.5,
+        "lineage": "g0.5:rep00",
+        "replica": 0,
+        "scenario_id": 40192750,
+        "status": "nvp"
+      },
+      {
+        "contexts": 58,
+        "executed_steps": 58,
+        "gamma": 1.0,
+        "lineage": "g1:rep00",
+        "replica": 0,
+        "scenario_id": 40192750,
+        "status": "success"
+      },
+      {
+        "contexts": 29,
+        "executed_steps": 29,
+        "gamma": 0.1,
+        "lineage": "g0.1:rep01",
+        "replica": 1,
+        "scenario_id": 755357831,
+        "status": "collision"
+      },
+      {
+        "contexts": 64,
+        "executed_steps": 64,
+        "gamma": 0.5,
+        "lineage": "g0.5:rep01",
+        "replica": 1,
+        "scenario_id": 755357831,
+        "status": "success"
+      },
+      {
+        "contexts": 71,
+        "executed_steps": 71,
+        "gamma": 1.0,
+        "lineage": "g1:rep01",
+        "replica": 1,
+        "scenario_id": 755357831,
+        "status": "success"
+      }
+    ],
+    "nvp": 1,
+    "per_gamma": {
+      "0.1": {
+        "collision": 1,
+        "gamma": 0.1,
+        "nvp": 0,
+        "rates": {
+          "collision": 0.5,
+          "nvp": 0.0,
+          "success": 0.5,
+          "timeout": 0.0
+        },
+        "success": 1,
+        "timeout": 0,
+        "total": 2
+      },
+      "0.5": {
+        "collision": 0,
+        "gamma": 0.5,
+        "nvp": 1,
+        "rates": {
+          "collision": 0.0,
+          "nvp": 0.5,
+          "success": 0.5,
+          "timeout": 0.0
+        },
+        "success": 1,
+        "timeout": 0,
+        "total": 2
+      },
+      "1": {
+        "collision": 0,
+        "gamma": 1.0,
+        "nvp": 0,
+        "rates": {
+          "collision": 0.0,
+          "nvp": 0.0,
+          "success": 1.0,
+          "timeout": 0.0
+        },
+        "success": 2,
+        "timeout": 0,
+        "total": 2
+      }
+    },
+    "rates": {
+      "collision": 0.16666666666666666,
+      "nvp": 0.16666666666666666,
+      "success": 0.6666666666666666,
+      "timeout": 0.0
+    },
+    "success": 4,
+    "timeout": 0,
+    "total": 6
+  },
+  "replicas": [
+    0,
+    1
+  ],
+  "scene_profile": "double_density_velocity_ood",
+  "scientific_B": 32,
+  "scientific_K": 64,
+  "scientific_scope": "acquisition-controller lineages; not raw-policy evaluation and not an expanded checkpoint",
+  "status": "SFM_HP100_PREDICTIVE_EXECUTION_VIZ_COMPLETE",
+  "style_version": "sfm_hp100_paper_video_style_v1",
+  "viz_version": "sfm_hp100_predictive_execution_viz_v1"
+}

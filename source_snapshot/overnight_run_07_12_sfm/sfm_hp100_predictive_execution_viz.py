@@ -152,6 +152,262 @@ def _rollout_stats(rows: list[dict]) -> dict:
     }
 
 
+def acquisition_grid_lineages(
+    trace: dict,
+    *,
+    gammas: tuple[float, ...] = (0.1, 0.5, 1.0),
+    replicas: tuple[int, ...] = (0, 1),
+) -> list[list[tuple[str, list[dict]]]]:
+    """Resolve an exact replica-by-gamma lineage grid from trace outcomes."""
+    outcomes = trace.get("outcomes")
+    if not isinstance(outcomes, dict):
+        raise ValueError("predictive trace must contain an outcomes mapping")
+    grid = []
+    for replica in replicas:
+        row = []
+        scenario_ids = set()
+        for gamma in gammas:
+            matches = [
+                (lineage, outcome)
+                for lineage, outcome in outcomes.items()
+                if int(outcome["replica"]) == int(replica)
+                and np.isclose(float(outcome["gamma"]), float(gamma))
+            ]
+            if len(matches) != 1:
+                raise ValueError(
+                    f"expected one outcome for replica={replica}, gamma={gamma}; "
+                    f"found {len(matches)}"
+                )
+            lineage, outcome = matches[0]
+            rows = _events_for_lineage(trace, lineage)
+            scenario_ids.add(int(outcome["scenario_id"]))
+            row.append((str(lineage), rows))
+        if len(scenario_ids) != 1:
+            raise ValueError(
+                f"replica {replica} is not paired across gamma: {scenario_ids}"
+            )
+        grid.append(row)
+    return grid
+
+
+def acquisition_grid_outcomes(
+    trace: dict,
+    grid: list[list[tuple[str, list[dict]]]],
+) -> dict:
+    """Summarize terminal outcomes for an acquisition lineage grid."""
+    statuses = ("success", "collision", "nvp", "timeout")
+    lineages = []
+    per_gamma: dict[str, dict] = {}
+    pooled = {status: 0 for status in statuses}
+    for row in grid:
+        for lineage, events in row:
+            outcome = trace["outcomes"][lineage]
+            status = str(outcome["status"]).lower()
+            if status not in pooled:
+                raise ValueError(f"unsupported terminal status {status!r}")
+            gamma = float(outcome["gamma"])
+            key = f"{gamma:g}"
+            cell = per_gamma.setdefault(
+                key, {"gamma": gamma, "total": 0, **{name: 0 for name in statuses}},
+            )
+            cell[status] += 1
+            cell["total"] += 1
+            pooled[status] += 1
+            lineages.append({
+                "lineage": str(lineage),
+                "gamma": gamma,
+                "replica": int(outcome["replica"]),
+                "scenario_id": int(outcome["scenario_id"]),
+                "status": status,
+                "executed_steps": int(outcome["executed_steps"]),
+                "contexts": len(events),
+            })
+    total = len(lineages)
+    for cell in per_gamma.values():
+        cell["rates"] = {
+            name: float(cell[name] / cell["total"]) for name in statuses
+        }
+    return {
+        "total": total,
+        **pooled,
+        "rates": {name: float(pooled[name] / total) for name in statuses},
+        "per_gamma": per_gamma,
+        "lineages": lineages,
+    }
+
+
+def _draw_acquisition_grid_axis(
+    axis,
+    rows: list[dict],
+    index: int,
+    *,
+    terminal_status: str,
+    held_terminal: bool,
+    bounds,
+) -> None:
+    axis.clear()
+    event = rows[index]
+    FINAL._draw_pedestrians(axis, event["ped_xy"], event["ped_vel"])
+    _draw_candidate_population(axis, event, phase="B")
+    segment, replay_positive, sidecar = _selected_segment(event)
+    axis.plot(
+        segment[:, 0], segment[:, 1],
+        color=(STYLE.POSITIVE_BLUE if replay_positive else STYLE.NEGATIVE_RED),
+        lw=STYLE.SAMPLE_LW + 0.9, alpha=1.0, zorder=18,
+    )
+    if not replay_positive:
+        axis.plot(
+            segment[-1, 0], segment[-1, 1], "x",
+            color=STYLE.NEGATIVE_RED, ms=7.2, mew=1.5, zorder=19,
+        )
+    if sidecar is not None:
+        FINAL._draw_verifier(axis, float(event["gamma"]), sidecar)
+    history = _history(rows, index, reveal_current=True)
+    axis.plot(
+        history[:, 0], history[:, 1], color=STYLE.EXECUTED_BLACK,
+        lw=max(0.9, STYLE.EXECUTED_LW - 0.35), zorder=20,
+    )
+    if len(history) > 1:
+        axis.scatter(
+            history[:-1, 0], history[:-1, 1], s=5.0,
+            color=STYLE.EXECUTED_BLACK, edgecolors="none", zorder=21,
+        )
+    robot = event["state_after"] if event.get("executed_role") is not None \
+        else event["state_before"]
+    FINAL._draw_robot_goal(axis, robot)
+    STYLE.fixed_world_frame(axis, bounds=bounds)
+    attempt = _final_attempt(event)
+    axis.text(
+        0.025, 0.025,
+        (
+            rf"$t={int(event['step'])}$" "\n"
+            rf"$B^+={int(attempt['positive_B32'])}/32$" "\n"
+            rf"$a={int(attempt['attempt']) + 1}$"
+        ),
+        transform=axis.transAxes, ha="left", va="bottom", fontsize=7.3,
+        color=STYLE.EXECUTED_BLACK, zorder=100,
+        bbox={
+            "boxstyle": "round,pad=0.20", "facecolor": "white",
+            "edgecolor": "none", "alpha": 0.74,
+        },
+    )
+    if held_terminal or event.get("terminal") is not None:
+        good = terminal_status == "success"
+        axis.text(
+            0.975, 0.975, terminal_status.upper(),
+            transform=axis.transAxes, ha="right", va="top", fontsize=8.2,
+            weight="bold", color=("#138A36" if good else STYLE.NEGATIVE_RED),
+            zorder=100,
+            bbox={
+                "boxstyle": "round,pad=0.22", "facecolor": "white",
+                "edgecolor": "none", "alpha": 0.84,
+            },
+        )
+
+
+def render_acquisition_grid(
+    trace: dict,
+    output: str | Path,
+    *,
+    gammas: tuple[float, ...] = (0.1, 0.5, 1.0),
+    replicas: tuple[int, ...] = (0, 1),
+    fps: int = 5,
+    frame_stride: int = 1,
+    bounds=None,
+) -> dict:
+    """Render two paired episodes across gamma for their complete acquisition."""
+    STYLE.apply_computer_modern_style()
+    gammas = tuple(float(value) for value in gammas)
+    replicas = tuple(int(value) for value in replicas)
+    grid = acquisition_grid_lineages(trace, gammas=gammas, replicas=replicas)
+    outcomes = acquisition_grid_outcomes(trace, grid)
+    output = Path(output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise FileExistsError(output)
+    maximum = max(len(rows) for row in grid for _, rows in row)
+    indices = list(range(0, maximum, int(frame_stride)))
+    if indices[-1] != maximum - 1:
+        indices.append(maximum - 1)
+    figure, axes = plt.subplots(
+        len(replicas), len(gammas),
+        figsize=(5.25 * len(gammas), 5.25 * len(replicas)),
+        squeeze=False,
+    )
+    for column, gamma in enumerate(gammas):
+        axes[0, column].set_title(rf"$\gamma={gamma:g}$", fontsize=11.0)
+    for row_index, replica in enumerate(replicas):
+        outcome = trace["outcomes"][grid[row_index][0][0]]
+        axes[row_index, 0].set_ylabel(
+            f"episode {int(outcome['scenario_id'])}", fontsize=10.0,
+        )
+    figure.legend(
+        handles=[
+            Line2D([], [], color=STYLE.UNCERTAINTY_GRAY, lw=1.1,
+                   label="K=64 flow proposals"),
+            Line2D([], [], color="#2A788E", lw=STYLE.ROLLOUT_LW,
+                   label="B=32 uncertainty-acquired"),
+            Line2D([], [], color=STYLE.POSITIVE_BLUE, lw=STYLE.SAMPLE_LW,
+                   label="prediction-selected exact positive"),
+            Line2D([], [], color=STYLE.NEGATIVE_RED, marker="x", lw=0,
+                   label="exact negative / terminal counterfactual"),
+            Line2D([], [], color=STYLE.EXECUTED_BLACK, lw=STYLE.EXECUTED_LW,
+                   label="executed trajectory"),
+        ],
+        loc="lower center", ncol=5, frameon=False, fontsize=8.5,
+    )
+
+    def update(global_index):
+        for row_index, row in enumerate(grid):
+            for column, (lineage, rows) in enumerate(row):
+                index = min(int(global_index), len(rows) - 1)
+                terminal_status = str(trace["outcomes"][lineage]["status"]).lower()
+                _draw_acquisition_grid_axis(
+                    axes[row_index, column], rows, index,
+                    terminal_status=terminal_status,
+                    held_terminal=int(global_index) >= len(rows) - 1,
+                    bounds=bounds,
+                )
+                if row_index == 0:
+                    axes[row_index, column].set_title(
+                        rf"$\gamma={gammas[column]:g}$", fontsize=11.0,
+                    )
+                if column == 0:
+                    scenario = trace["outcomes"][lineage]["scenario_id"]
+                    axes[row_index, column].set_ylabel(
+                        f"episode {int(scenario)}", fontsize=10.0,
+                    )
+        figure.tight_layout(rect=(0.0, 0.055, 1.0, 1.0), pad=0.35)
+        return []
+
+    movie = animation.FuncAnimation(
+        figure, update, frames=indices, interval=1000 / int(fps), blit=False,
+    )
+    movie.save(output, writer=FINAL._writer(fps, bitrate=7600), dpi=120)
+    plt.close(figure)
+    return _finalize(output, {
+        "kind": "always_on_predictive_acquisition_grid",
+        "scene_profile": str(trace.get("preflight", {}).get(
+            "scene", {}).get("name", "double_density_velocity_ood"
+        )),
+        "gammas": list(gammas),
+        "replicas": list(replicas),
+        "scientific_K": 64,
+        "scientific_B": 32,
+        "execution_rule": "exact-positive max H10 progress; clearance/sigma/index tie-break",
+        "fixed_camera": (
+            list(map(float, bounds)) if bounds is not None
+            else [float(SS.TASK_LO), float(SS.TASK_HI)]
+        ),
+        "frame_stride": int(frame_stride),
+        "outcomes": outcomes,
+        "scientific_scope": (
+            "acquisition-controller lineages; not raw-policy evaluation and "
+            "not an expanded checkpoint"
+        ),
+    })
+
+
 def render_rollout(
     trace: dict,
     lineage: str,
@@ -641,6 +897,14 @@ def parser() -> argparse.ArgumentParser:
     cases.add_argument("--min-exact-positive", type=int, default=4)
     cases.add_argument("--min-progress-gain", type=float, default=0.1)
     cases.add_argument("--bounds", type=float, nargs="+")
+    grid = sub.add_parser("grid")
+    grid.add_argument("--trace", required=True)
+    grid.add_argument("--output", required=True)
+    grid.add_argument("--gammas", type=float, nargs="+", default=(0.1, 0.5, 1.0))
+    grid.add_argument("--replicas", type=int, nargs="+", default=(0, 1))
+    grid.add_argument("--fps", type=int, default=5)
+    grid.add_argument("--frame-stride", type=int, default=1)
+    grid.add_argument("--bounds", type=float, nargs="+")
     return value
 
 
@@ -653,12 +917,18 @@ def main(argv=None) -> int:
             frame_stride=args.frame_stride,
             show_safety_badge=args.show_safety_badge, bounds=args.bounds,
         )
-    else:
+    elif args.command == "cases":
         result = render_cases(
             trace, args.output, count=args.count, fps=args.fps,
             max_nearest_clearance=args.max_nearest_clearance,
             min_exact_positive=args.min_exact_positive,
             min_progress_gain=args.min_progress_gain, bounds=args.bounds,
+        )
+    else:
+        result = render_acquisition_grid(
+            trace, args.output, gammas=tuple(args.gammas),
+            replicas=tuple(args.replicas), fps=args.fps,
+            frame_stride=args.frame_stride, bounds=args.bounds,
         )
     print(json.dumps(result, indent=2, allow_nan=False))
     return 0

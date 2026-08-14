@@ -59,8 +59,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 11765,
-      "sha256": "893337c4cc405f6ab4246a5a9c6a321671744ba10865acb25e0f8fe6f00331e0"
+      "bytes": 13599,
+      "sha256": "6780d066aadb1fcd05bd88ec9774aff3e54eadeacf1412217a1452bf2bfc6222"
     },
     {
       "path": "REPOSITORY_LINEAGE.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "assets/diagnostics/predictive_execution/MECHANISM_RESULT.md",
-      "bytes": 3429,
-      "sha256": "2e5d153d5ebb477e1f9a551d8b960f3f3a5c6397c3a4a5506d3858723d43a141"
+      "bytes": 4339,
+      "sha256": "eb70ee2bdc63c7bcfceeb1b75d275b8de27249f4ef2222c6b4cdc448af1c48b4"
     },
     {
       "path": "assets/diagnostics/predictive_execution/PREDICTIVE_EXECUTION_COMPLETE.json",
@@ -81,6 +81,16 @@
       "path": "assets/diagnostics/predictive_execution/PREFLIGHT.json",
       "bytes": 12226,
       "sha256": "309d0021d061e2fb7a439e01c72fba31bb28104cd5778ebffd5e9e921d51bbb0"
+    },
+    {
+      "path": "assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.json",
+      "bytes": 3322,
+      "sha256": "431719646134b61e94f53e79c1a38bc4c2d8ab4311439831e1f57c9124ce36b6"
+    },
+    {
+      "path": "assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4",
+      "bytes": 7580963,
+      "sha256": "619723d725088148effb6f9905c3163ccd7061fa11df9c53ae4810b110900c56"
     },
     {
       "path": "assets/diagnostics/predictive_execution/predictive_progress_success_rollout.json",
@@ -1349,8 +1359,8 @@
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_predictive_execution_viz.py",
-      "bytes": 4320,
-      "sha256": "eda92ed64c5b76d0168af229a371a9e41c86c4cf365620b692ed3d1d324ed699"
+      "bytes": 6030,
+      "sha256": "1841918d4f264a5d534bdde479ca662211cf4072533c874c92ed9907b156e87e"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_preterminal_archive.py",
@@ -1714,8 +1724,8 @@
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_predictive_execution_viz.py",
-      "bytes": 24980,
-      "sha256": "70cff4b26d4d52eec083300ac117992823d9e05863ec68305d6b06a2036a3777"
+      "bytes": 35578,
+      "sha256": "5344e9d1800aaf206d1b08217e1c9899e6492c48b0075c7ac5e929c4b9ee8279"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_preterminal_sweep.py",

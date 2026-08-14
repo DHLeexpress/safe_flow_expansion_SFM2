@@ -28,6 +28,7 @@ the former max-margin selector.
 | Before/repair template | [acquisition-before MP4](assets/templates/acquisition_before_template.mp4) | Old conditional-repair visual template; not the new mechanism |
 | After/raw template | [raw-after MP4](assets/templates/raw_after_template.mp4) | Same-lineage raw-policy visual template |
 | New diagnostic result | [mechanism report](assets/diagnostics/predictive_execution/MECHANISM_RESULT.md) | K64/B32 statistics, limitations, comparison video, rollout, and montage |
+| Full acquisition audit | [2 episodes x 3 gamma MP4](assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4) | Complete K64 -> B32 -> exact verification -> prediction-based execution trajectories |
 
 The two template videos are presentation references. Their old controller and
 sample semantics must not be attributed to the new protocol.
@@ -115,6 +116,27 @@ not the ODE sampling temperature. The authoritative diagnostic default is
 32 attempts, \(a=0,\ldots,31\). On exhaustion, do not execute a negative:
 archive exactly one resolved negative counterfactual from the final B and end
 that lineage NVP.
+
+### Full two-episode acquisition audit
+
+The [2 x 3 acquisition video](assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4)
+runs paired OOD scenarios `40192750` and `755357831` from start to terminal at
+`gamma in {0.1, 0.5, 1.0}`. Every panel shows the K=64 flow population, the
+uncertainty-acquired B=32 subset, exact-negative endpoints, the
+prediction-selected exact-positive H10 action and its candidate-specific GREEN
+verifier, and the executed closed-loop path.
+
+| gamma | Success | Collision | NVP | Timeout | Total |
+|---:|---:|---:|---:|---:|---:|
+| 0.1 | 1/2 (50%) | 1/2 (50%) | 0/2 | 0/2 | 2 |
+| 0.5 | 1/2 (50%) | 0/2 | 1/2 (50%) | 0/2 | 2 |
+| 1.0 | 2/2 (100%) | 0/2 | 0/2 | 0/2 | 2 |
+| **Pooled** | **4/6 (66.67%)** | **1/6 (16.67%)** | **1/6 (16.67%)** | **0/6** | **6** |
+
+These are acquisition-controller lineage outcomes, not raw-policy evaluation
+and not an expanded-checkpoint result. Six lineages are sufficient to audit the
+mechanism and its failures, but not to estimate deployment performance; the
+latter still requires the independent raw M10/M50/M100 protocol.
 
 After an exact-positive first action is executed, advance the live SFM state.
 If that immediate transition realizes collision or out-of-bounds despite its
@@ -236,6 +258,20 @@ select on the final confirmation bank.
 python scripts/show_claude_hp100_handoff.py
 python scripts/verify_package.py
 pytest -q
+```
+
+The committed full-acquisition video is reproduced without resampling by:
+
+```bash
+cd source_snapshot/overnight_run_07_12_sfm
+TRACE=/data3/research1/sfm2_predictive_execution_20260814_v2/predictive_trace.pt
+python sfm_hp100_predictive_execution_viz.py grid \
+  --trace "$TRACE" \
+  --output ../../../assets/diagnostics/predictive_execution/predictive_acquisition_2episodes_g0p1_g0p5_g1p0.mp4 \
+  --gammas 0.1 0.5 1.0 \
+  --replicas 0 1 \
+  --fps 5 \
+  --frame-stride 1
 ```
 
 The complete operational handoff is
