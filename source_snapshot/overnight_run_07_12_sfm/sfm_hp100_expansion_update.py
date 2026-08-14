@@ -58,9 +58,14 @@ NEGATIVE_LOSS_ABORT_FACTOR = 10.0
 @dataclass(frozen=True)
 class UpdateConfig:
     alpha: float = 0.0
-    learning_rate: float = 1.0e-6
+    # The declared fixed learning rate for the exposure sweep.
+    learning_rate: float = 1.0e-5
     batch_size: int = 64
-    epochs: int = 1
+    # E: complete deterministically reshuffled passes over the eligible round
+    # archive.  This is the declared primary recipe variable of the sweep
+    # (E in {1, 4, 16}); every pass exposes each D+ row exactly once, so total
+    # exposure is E-fold by design and is audited truthfully below.
+    exposure_passes: int = 1
     negative_mass: str = "full_set_mean"
     grad_clip_norm: float = 1.0
     max_relative_parameter_drift: float = 0.25
@@ -73,8 +78,13 @@ class UpdateConfig:
     def validate(self) -> None:
         if self.alpha < 0.0:
             raise ValueError("alpha must be nonnegative")
-        if self.learning_rate <= 0.0 or self.batch_size < 1 or self.epochs < 1:
-            raise ValueError("learning rate, batch size, and epochs must be positive")
+        if (
+            self.learning_rate <= 0.0 or self.batch_size < 1
+            or self.exposure_passes < 1
+        ):
+            raise ValueError(
+                "learning rate, batch size, and exposure passes must be positive"
+            )
         if self.negative_mass != "full_set_mean":
             raise ValueError("only the declared full_set_mean negative mass is allowed")
         if self.grad_clip_norm <= 0.0:
@@ -144,14 +154,18 @@ def _validate_roles(positives, negatives) -> None:
             raise ValueError("D- verifier label disagrees with its declared reason")
 
 
-def _duplicate_exposures(rows) -> int:
-    keys = [
+def _row_keys(rows) -> list[tuple]:
+    return [
         (
             row["lineage"], int(row["scenario_id"]), int(row["step"]),
             int(row["attempt"]), int(row.get("round", 0)), int(row.get("block", 0)),
         )
         for row in rows
     ]
+
+
+def _in_archive_duplicate_rows(rows) -> int:
+    keys = _row_keys(rows)
     return len(keys) - len(set(keys))
 
 
@@ -162,8 +176,14 @@ def expansion_update(
     config: UpdateConfig,
     *,
     round_index: int,
+    optimizer: torch.optim.Adam | None = None,
 ) -> dict:
-    """One declared update round; single pass per epoch, no oversampling."""
+    """One declared update round: E complete reshuffled passes over D+.
+
+    When ``optimizer`` is provided it must already hold exactly the declared
+    trainable parameters; its momentum state then persists across rounds so a
+    cumulative arm can be resumed bitwise from any saved round.
+    """
     config.validate()
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")
@@ -178,16 +198,31 @@ def expansion_update(
     if negatives:
         negative_stack = HYBRID._stack_rows(negatives, device)
 
-    optimizer = torch.optim.Adam(parameters, lr=config.learning_rate)
+    if optimizer is None:
+        optimizer = torch.optim.Adam(parameters, lr=config.learning_rate)
+    else:
+        held = [
+            parameter
+            for group in optimizer.param_groups
+            for parameter in group["params"]
+        ]
+        if len(held) != len(parameters) or any(
+            a is not b for a, b in zip(held, parameters)
+        ):
+            raise RuntimeError(
+                "the persistent optimizer does not hold the declared surface"
+            )
     positive_losses, negative_losses, objectives = [], [], []
     grad_pre_clip, grad_post_clip = [], []
     positive_grad_norms, negative_grad_norms, grad_cosines = [], [], []
+    per_pass_positive_loss, per_pass_grad_norm = [], []
     clipped_steps = 0
     steps = 0
     initial_negative_loss = None
     abort_reason = None
 
-    for epoch in range(config.epochs):
+    for epoch in range(config.exposure_passes):
+        pass_losses, pass_norms = [], []
         order = np.random.default_rng(_counter_seed(
             config.seed, "sfm2_Dplus_order", int(round_index), epoch,
         )).permutation(len(positives))
@@ -274,6 +309,8 @@ def expansion_update(
 
             positive_loss_value = float(positive_loss.detach())
             positive_losses.append(positive_loss_value)
+            pass_losses.append(positive_loss_value)
+            pass_norms.append(pre_clip)
             grad_pre_clip.append(pre_clip)
             grad_post_clip.append(post_clip)
             if negative_loss_value is None:
@@ -291,6 +328,12 @@ def expansion_update(
                 ):
                     abort_reason = "negative_loss_divergence"
                     break
+        per_pass_positive_loss.append(
+            float(np.mean(pass_losses)) if pass_losses else None
+        )
+        per_pass_grad_norm.append(
+            float(np.mean(pass_norms)) if pass_norms else None
+        )
         if abort_reason is not None:
             break
 
@@ -329,6 +372,9 @@ def expansion_update(
         "trainable_names": list(trainable_names),
         "trainable_parameters": TRAINABLE_PARAMETER_COUNT,
         "steps": int(steps),
+        "adam_steps": int(steps),
+        "exposure_passes_declared": int(config.exposure_passes),
+        "exposure_passes_completed": len(per_pass_positive_loss),
         "positive_count": len(positives),
         "negative_count": len(negatives),
         "negative_counts_by_reason": {
@@ -337,13 +383,28 @@ def expansion_update(
                 "all_negative_nvp", "realized_collision", "realized_oob",
             )
         },
-        "duplicate_exposures": _duplicate_exposures(positives)
-        + _duplicate_exposures(negatives),
+        # Exact exposure audit.  Each completed pass exposes every D+ row once;
+        # the negative term touches the full D- set every step by declared
+        # full_set_mean semantics.  duplicate_exposures counts every exposure
+        # beyond a unique sample's first, so the E-fold design is reported
+        # truthfully instead of being hidden as 0.
+        "unique_positive_samples": len(set(_row_keys(positives))),
+        "unique_negative_samples": len(set(_row_keys(negatives))),
+        "positive_exposures": len(per_pass_positive_loss) * len(positives),
+        "negative_exposures": int(steps) * len(negatives),
+        "duplicate_exposures": (
+            len(per_pass_positive_loss) * len(positives)
+            - len(set(_row_keys(positives)))
+        ),
+        "in_archive_duplicate_rows": _in_archive_duplicate_rows(positives)
+        + _in_archive_duplicate_rows(negatives),
         "positive_loss_mean": positive_loss_mean,
         "negative_loss_mean": negative_loss_mean,
         "objective_mean": objective_mean,
         "grad_norm_pre_clip": grad_pre_clip,
         "grad_norm_post_clip": grad_post_clip,
+        "per_pass_positive_loss": per_pass_positive_loss,
+        "per_pass_grad_norm": per_pass_grad_norm,
         "clipped_fraction": (clipped_steps / steps if steps else None),
         "positive_grad_norm": (
             float(np.mean(positive_grad_norms)) if positive_grad_norms else None
@@ -361,8 +422,9 @@ def expansion_update(
         "encoder_state_sha256_after": encoder_after,
         "negative_mass": config.negative_mass,
         "sample_order": (
-            "deterministic per-epoch shuffle over D+; each D+ row exposed "
-            "exactly once per epoch; negative term over the full D- set each step"
+            "E deterministic reshuffled complete passes over D+; each D+ row "
+            "exposed exactly once per pass; negative term over the full D- "
+            "set each step"
         ),
     }
 
@@ -374,6 +436,7 @@ def checkpoint_payload(
     pretrained_checkpoint_sha256: str,
     round_index: int,
     alpha: float,
+    exposure_passes: int = 1,
 ) -> dict:
     """Strict HP100 checkpoint schema so the raw evaluator loads it unchanged."""
     return {
@@ -388,5 +451,6 @@ def checkpoint_payload(
         "optimizer_scope": OPTIMIZER_SCOPE,
         "round": int(round_index),
         "alpha": float(alpha),
+        "exposure_passes": int(exposure_passes),
         "promotable": False,
     }

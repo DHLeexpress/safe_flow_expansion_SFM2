@@ -160,7 +160,67 @@ def test_full_set_mean_gives_duplicated_negatives_no_extra_mass():
     assert doubled["objective_mean"] == pytest.approx(
         single["objective_mean"], abs=1.0e-6,
     )
-    assert doubled["duplicate_exposures"] == 2
+    assert doubled["in_archive_duplicate_rows"] == 2
+    assert doubled["unique_negative_samples"] == 2
+    assert doubled["negative_count"] == 4
+
+
+def test_exposure_passes_are_audited_truthfully():
+    positives = _positives(6)
+    metrics = UPD.expansion_update(
+        _deterministic_adapter(seed=1), copy.deepcopy(positives), _negatives(),
+        UPD.UpdateConfig(alpha=0.5, learning_rate=1.0e-6, batch_size=4,
+                         exposure_passes=4, seed=2),
+        round_index=1,
+    )
+    assert metrics["exposure_passes_declared"] == 4
+    assert metrics["exposure_passes_completed"] == 4
+    assert metrics["unique_positive_samples"] == 6
+    assert metrics["positive_exposures"] == 24
+    assert metrics["duplicate_exposures"] == 24 - 6
+    # batch_size 4 over 6 rows -> 2 steps per pass, 4 passes.
+    assert metrics["steps"] == metrics["adam_steps"] == 8
+    assert metrics["negative_exposures"] == 8 * 2
+    assert len(metrics["per_pass_positive_loss"]) == 4
+    assert len(metrics["per_pass_grad_norm"]) == 4
+    # Passes reshuffle deterministically but distinctly.
+    single_pass = UPD.expansion_update(
+        _deterministic_adapter(seed=1), copy.deepcopy(positives), _negatives(),
+        UPD.UpdateConfig(alpha=0.5, learning_rate=1.0e-6, batch_size=4,
+                         exposure_passes=1, seed=2),
+        round_index=1,
+    )
+    assert single_pass["positive_exposures"] == 6
+    assert single_pass["duplicate_exposures"] == 0
+
+
+def test_persistent_optimizer_must_hold_the_declared_surface():
+    adapter = _adapter(seed=5)
+    foreign = torch.optim.Adam(
+        [torch.nn.Parameter(torch.zeros(3))], lr=1.0e-5,
+    )
+    with pytest.raises(RuntimeError, match="persistent optimizer"):
+        UPD.expansion_update(
+            adapter, _positives(), [],
+            UPD.UpdateConfig(seed=2), round_index=1, optimizer=foreign,
+        )
+    parameters, _ = UPD.configure_trainable(adapter)
+    optimizer = torch.optim.Adam(parameters, lr=1.0e-5)
+    first = UPD.expansion_update(
+        adapter, _positives(), [], UPD.UpdateConfig(seed=2),
+        round_index=1, optimizer=optimizer,
+    )
+    second = UPD.expansion_update(
+        adapter, _positives(), [], UPD.UpdateConfig(seed=2),
+        round_index=2, optimizer=optimizer,
+    )
+    assert first["accepted"] and second["accepted"]
+    # Momentum persisted: Adam state step count accumulated across rounds.
+    steps = {
+        int(state["step"])
+        for state in optimizer.state.values() if "step" in state
+    }
+    assert steps == {first["steps"] + second["steps"]}
 
 
 def test_update_moves_every_trainable_parameter_and_freezes_encoders():

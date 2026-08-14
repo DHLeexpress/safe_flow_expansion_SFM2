@@ -1,9 +1,21 @@
 """Bounded fixed-recipe search contract for SFM2 predictive expansion.
 
-Every recipe is declared in source below and frozen into a written
+The declared sweep has exactly one primary variable: effective replay/update
+exposure ``E`` — complete deterministically reshuffled passes over the eligible
+round archive — at the historically stable values ``E in {1, 4, 16}``.  Alpha
+is fixed at 0 and the learning rate at 1e-5 for every sweep arm; every arm
+runs cumulatively through rounds r1..r5, and every saved checkpoint r0..r5 is
+screened on the same fixed disjoint raw M20-per-gamma CRN bank.  Learning rate
+and round count are *not* swept.
+
+Qualification (run once, before the sweep) compares alpha=0 against
+alpha=0.05 on the identical shared round-1 archive; alpha=0.05 survives into
+later arms only under the declared retention rule below.
+
+Every recipe is declared in source and frozen into a written
 ``SEARCH_CONTRACT.json`` *before* any shortlist or confirmation bank is read.
-Shortlisting happens on the development M10 bank, the shortlist is evaluated
-once on the fresh M50 bank, and ``lock_winner`` fixes the single confirmation
+Shortlisting happens on the M20 screening bank, finalists are evaluated once
+on the fresh M50 bank, and ``lock_winner`` fixes the single confirmation
 candidate before the untouched M100 bank may run.  No runner-up substitution
 after M50 is read; no reading M100 before locking.
 """
@@ -21,15 +33,47 @@ from sfm_hp100_expansion_funnel import (
 )
 
 
-VERSION = "sfm_hp100_expansion_search_v1"
+VERSION = "sfm_hp100_expansion_search_v2"
 CONTRACT_STATUS = "SFM2_EXPANSION_SEARCH_DECLARED"
 LOCK_STATUS = "SFM2_EXPANSION_WINNER_LOCKED"
 SHORTLIST_SIZE = 3
 
+# Fixed non-swept recipe surface.
+SWEEP_ALPHA = 0.0
+SWEEP_LEARNING_RATE = 1.0e-5
+SWEEP_ROUNDS = 5
+SWEEP_EXPOSURE_PASSES = (1, 4, 16)
+
+# Declared screening guards.  The M20 OOD screen is 7 gammas x 20 = 140
+# rollouts per checkpoint, so one episode moves a pooled rate by 1/140.
+# SR may drop at most 4 episodes (~2.9%, matching the historical 2/70 M10
+# margin in absolute terms); timeout may rise at most 2 episodes.
+SR_GUARD = 4.0 / 140.0
+TIMEOUT_GUARD = 2.0 / 140.0
+# Successful time-to-goal may not worsen by more than this pooled margin
+# (r0 OOD is 7.147 s; 0.5 s is ~7% and well above M20 sampling noise).
+TIME_GUARD_SECONDS = 0.5
+# Per-gamma collapse guard: pooled improvement bought by wrecking a single
+# gamma is a failure.  At M20 per gamma one episode is 5 points, so 10 points
+# (= 2 episodes) is the smallest margin distinguishable from noise.
+PER_GAMMA_CR_COLLAPSE = 0.10
+PER_GAMMA_VALIDITY_COLLAPSE = 0.10
+
 RANKING_KEY = (
-    "minimize OOD CR, then maximize OOD Validity, then maximize OOD "
-    "successful_clearance; guarded by OOD SR >= r0 - sr_guard, ID SR >= "
-    "r0_ID - sr_guard, timeout <= r0 + timeout_guard"
+    "r0-relative four-metric improvement, lexicographic: minimize OOD CR, "
+    "then maximize OOD Validity, then maximize OOD successful_clearance, "
+    "then minimize OOD successful_time; guarded by OOD SR >= r0 - sr_guard, "
+    "ID SR >= r0_ID - sr_guard when the ID screen ran, timeout <= r0 + "
+    "timeout_guard, successful_time <= r0 + time_guard_seconds, and the "
+    "per-gamma collapse guard on CR/Validity"
+)
+
+ALPHA_RETENTION_RULE = (
+    "alpha=0.05 is retained beyond qualification only if, on the identical "
+    "shared round-1 archive and the same M20 screen, it improves OOD CR or "
+    "Validity beyond the corresponding guard margin relative to the alpha=0 "
+    "arm without violating the SR or timeout guard; otherwise every later "
+    "arm runs alpha=0"
 )
 
 
@@ -37,24 +81,31 @@ RANKING_KEY = (
 class Recipe:
     recipe_id: str
     alpha: float
-    rounds: int
+    exposure_passes: int
     learning_rate: float
+    rounds: int
     replay: str = (
-        "single pass over D+, no duplicates, full_set_mean negative mass"
+        "E complete reshuffled passes over D+ per round, no oversampling, "
+        "full_set_mean negative mass, cumulative rounds with persistent Adam"
     )
 
 
 def declared_recipes() -> tuple[Recipe, ...]:
-    """The complete frozen search space; edit requires a new declared contract."""
+    """The complete frozen sweep space; editing requires a new contract."""
+    return tuple(
+        Recipe(
+            f"E{exposure}", SWEEP_ALPHA, exposure,
+            SWEEP_LEARNING_RATE, SWEEP_ROUNDS,
+        )
+        for exposure in SWEEP_EXPOSURE_PASSES
+    )
+
+
+def qualification_recipes() -> tuple[Recipe, ...]:
+    """One-shot alpha comparison on the identical shared round-1 archive."""
     return (
-        Recipe("A0-R1", 0.00, 1, 1.0e-6),
-        Recipe("A0-R3", 0.00, 3, 1.0e-6),
-        Recipe("A05-R1", 0.05, 1, 1.0e-6),
-        Recipe("A05-R3", 0.05, 3, 1.0e-6),
-        Recipe("A15-R1", 0.15, 1, 1.0e-6),
-        Recipe("A15-R3", 0.15, 3, 1.0e-6),
-        Recipe("A05-R1-LR", 0.05, 1, 1.0e-5),
-        Recipe("A0-R1-LR", 0.00, 1, 1.0e-5),
+        Recipe("QUAL-A0", 0.0, 1, SWEEP_LEARNING_RATE, 1),
+        Recipe("QUAL-A005", 0.05, 1, SWEEP_LEARNING_RATE, 1),
     )
 
 
@@ -62,10 +113,11 @@ def write_contract(
     path: str | Path,
     *,
     r0_sha256: str,
-    sr_guard: float,
-    timeout_guard: float,
+    sr_guard: float = SR_GUARD,
+    timeout_guard: float = TIMEOUT_GUARD,
+    time_guard_seconds: float = TIME_GUARD_SECONDS,
 ) -> dict:
-    """Freeze recipes, banks, ranking, and shortlist size before any run."""
+    """Freeze recipes, banks, ranking, guards, and shortlist size before any run."""
     assert_declared_banks_static()
     path = Path(path).resolve()
     if path.exists():
@@ -80,6 +132,10 @@ def write_contract(
         "version": VERSION,
         "r0_sha256": str(r0_sha256).lower(),
         "recipes": [asdict(recipe) for recipe in recipes],
+        "qualification_recipes": [
+            asdict(recipe) for recipe in qualification_recipes()
+        ],
+        "alpha_retention_rule": ALPHA_RETENTION_RULE,
         "banks": {
             stage: [dict(bank) for bank in banks]
             for stage, banks in DECLARED_EVAL_BANKS.items()
@@ -88,6 +144,9 @@ def write_contract(
         "shortlist_size": SHORTLIST_SIZE,
         "sr_guard": float(sr_guard),
         "timeout_guard": float(timeout_guard),
+        "time_guard_seconds": float(time_guard_seconds),
+        "per_gamma_cr_collapse": float(PER_GAMMA_CR_COLLAPSE),
+        "per_gamma_validity_collapse": float(PER_GAMMA_VALIDITY_COLLAPSE),
         "locked_winner": None,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,34 +166,69 @@ def _metrics(entry: dict) -> dict:
     return pooled
 
 
+def _per_gamma_collapse_reasons(
+    contract: dict, per_gamma: dict, r0_per_gamma: dict,
+) -> list[str]:
+    reasons = []
+    cr_margin = float(contract["per_gamma_cr_collapse"])
+    validity_margin = float(contract["per_gamma_validity_collapse"])
+    for gamma, r0_row in r0_per_gamma.items():
+        row = per_gamma.get(gamma)
+        if row is None:
+            reasons.append(f"missing_gamma_{gamma}")
+            continue
+        if float(row["CR"]) > float(r0_row["CR"]) + cr_margin:
+            reasons.append(f"gamma_{gamma}_cr_collapse")
+        if float(row["Validity"]) < float(r0_row["Validity"]) - validity_margin:
+            reasons.append(f"gamma_{gamma}_validity_collapse")
+    return reasons
+
+
 def select_shortlist(
     contract: dict,
-    dev_results: list[dict],
+    screen_results: list[dict],
     *,
     r0_ood: dict,
-    r0_id: dict,
+    r0_id: dict | None = None,
+    r0_ood_per_gamma: dict | None = None,
 ) -> list[dict]:
-    """Rank guarded dev-M10 candidates by the declared lexicographic key.
+    """Rank guarded M20-screen candidates by the declared r0-relative key.
 
-    ``dev_results`` rows carry ``label``, ``checkpoint_sha256``, ``ood``, and
-    ``id`` pooled metric dicts from the dev-M10 funnel stage.
+    ``screen_results`` rows carry ``label``, ``checkpoint_sha256``, ``ood``
+    pooled metrics, optionally ``id`` pooled metrics (when the ID screen ran)
+    and ``ood_per_gamma`` per-gamma metric dicts from the screen-m20 stage.
     """
     if contract.get("status") not in {CONTRACT_STATUS, LOCK_STATUS}:
         raise ValueError("shortlisting requires the declared search contract")
     sr_guard = float(contract["sr_guard"])
     timeout_guard = float(contract["timeout_guard"])
+    time_guard = float(contract["time_guard_seconds"])
     guarded = []
     ledger = []
-    for row in dev_results:
+    for row in screen_results:
         ood = _metrics({"pooled": row["ood"]})
-        matched = _metrics({"pooled": row["id"]})
         reasons = []
         if ood["SR"] < float(r0_ood["SR"]) - sr_guard:
             reasons.append("ood_sr_guard")
-        if matched["SR"] < float(r0_id["SR"]) - sr_guard:
-            reasons.append("id_sr_guard")
+        if row.get("id") is not None:
+            if r0_id is None:
+                raise ValueError("ID screen results require the r0 ID baseline")
+            if _metrics({"pooled": row["id"]})["SR"] < (
+                float(r0_id["SR"]) - sr_guard
+            ):
+                reasons.append("id_sr_guard")
         if ood["timeout"] > float(r0_ood["timeout"]) + timeout_guard:
             reasons.append("timeout_guard")
+        r0_time = r0_ood.get("successful_time")
+        time = ood.get("successful_time")
+        if r0_time is not None and time is not None and (
+            float(time) > float(r0_time) + time_guard
+        ):
+            reasons.append("time_guard")
+        if r0_ood_per_gamma is not None and row.get("ood_per_gamma") is not None:
+            reasons.extend(_per_gamma_collapse_reasons(
+                contract, row["ood_per_gamma"], r0_ood_per_gamma,
+            ))
         ledger.append({
             "label": row["label"], "eligible": not reasons, "reasons": reasons,
         })
@@ -147,6 +241,10 @@ def select_shortlist(
             float("-inf") if row["ood"]["successful_clearance"] is None
             else float(row["ood"]["successful_clearance"])
         ),
+        (
+            float("inf") if row["ood"].get("successful_time") is None
+            else float(row["ood"]["successful_time"])
+        ),
         str(row["label"]),
     ))
     shortlist = ordered[:int(contract["shortlist_size"])]
@@ -155,7 +253,7 @@ def select_shortlist(
             "label": row["label"],
             "checkpoint_sha256": row["checkpoint_sha256"],
             "ood": dict(row["ood"]),
-            "id": dict(row["id"]),
+            "id": (None if row.get("id") is None else dict(row["id"])),
             "screen_ledger": ledger,
         }
         for row in shortlist
@@ -206,8 +304,11 @@ def parser() -> argparse.ArgumentParser:
     declare = sub.add_parser("declare", help="write the frozen search contract")
     declare.add_argument("--contract", required=True)
     declare.add_argument("--r0-sha256", required=True)
-    declare.add_argument("--sr-guard", type=float, default=2.0 / 70.0)
-    declare.add_argument("--timeout-guard", type=float, default=1.0 / 70.0)
+    declare.add_argument("--sr-guard", type=float, default=SR_GUARD)
+    declare.add_argument("--timeout-guard", type=float, default=TIMEOUT_GUARD)
+    declare.add_argument(
+        "--time-guard-seconds", type=float, default=TIME_GUARD_SECONDS,
+    )
     lock = sub.add_parser("lock", help="lock the single M100 winner")
     lock.add_argument("--contract", required=True)
     lock.add_argument("--winner-label", required=True)
@@ -224,6 +325,7 @@ def main(argv=None) -> int:
             args.contract, r0_sha256=args.r0_sha256,
             sr_guard=float(args.sr_guard),
             timeout_guard=float(args.timeout_guard),
+            time_guard_seconds=float(args.time_guard_seconds),
         )
         print(json.dumps({
             "status": contract["status"],

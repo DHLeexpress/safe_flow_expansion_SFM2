@@ -4,8 +4,11 @@ The funnel never re-implements evaluation: every stage subprocess-invokes the
 fixed ``sfm_hp100_eval.py`` raw temperature-one evaluator on a declared frozen
 episode bank.  Stages are strictly ordered:
 
-- ``dev-m10``: fixed disjoint development screen for every saved checkpoint;
-- ``shortlist-m50``: fresh bank for the declared shortlist only;
+- ``screen-m20``: fixed disjoint M20-per-gamma CRN screening bank; every saved
+  checkpoint r0..r5 of every arm is evaluated on this same bank (7 gammas x
+  M20 = 140 OOD rollouts per checkpoint; the matched-ID bank is optional via
+  ``--include-id``).  Screening only — never a result;
+- ``shortlist-m50``: fresh bank for the declared finalists only;
 - ``confirm-m100``: untouched bank for the single locked winner (plus r0),
   refused unless a search contract has already locked that winner.
 
@@ -46,11 +49,11 @@ ID_PROFILE = "matched_id"
 # import-independent test time; ``assert_bank_disjoint`` in the archive runner
 # additionally proves no realized acquisition scenario id hit a bank episode.
 DECLARED_EVAL_BANKS = {
-    "dev_m10": (
-        dict(stage="dev_m10", scene_profile=OOD_PROFILE,
-             ep0=900_000, M=10, noise_seed=20_260_814),
-        dict(stage="dev_m10", scene_profile=ID_PROFILE,
-             ep0=910_000, M=10, noise_seed=20_260_814),
+    "screen_m20": (
+        dict(stage="screen_m20", scene_profile=OOD_PROFILE,
+             ep0=900_000, M=20, noise_seed=20_260_814),
+        dict(stage="screen_m20", scene_profile=ID_PROFILE,
+             ep0=910_000, M=20, noise_seed=20_260_814),
     ),
     "shortlist_m50": (
         dict(stage="shortlist_m50", scene_profile=OOD_PROFILE,
@@ -278,17 +281,25 @@ def run_stage(args) -> dict:
                     f"confirm-m100 refuses unlocked checkpoint {label} ({actual})"
                 )
 
+    banks = list(DECLARED_EVAL_BANKS[stage])
+    if stage == "screen_m20" and not bool(getattr(args, "include_id", False)):
+        # Screening is OOD by default (the 140-rollout figure is the OOD
+        # bank); the matched-ID screen is an optional extra pass.
+        banks = [
+            bank for bank in banks if bank["scene_profile"] == OOD_PROFILE
+        ]
+
     output.mkdir(parents=True)
     heartbeat = Heartbeat(
         args.status_json, interval_seconds=float(args.heartbeat_seconds),
     )
     results = []
     for index, (label, checkpoint) in enumerate(checkpoints):
-        for bank in DECLARED_EVAL_BANKS[stage]:
+        for bank in banks:
             heartbeat.beat(
                 status="running", phase=stage, checkpoint=label,
                 bank=bank["scene_profile"], completed=len(results),
-                total=len(checkpoints) * len(DECLARED_EVAL_BANKS[stage]),
+                total=len(checkpoints) * len(banks),
             )
             results.append(evaluate_checkpoint(
                 label=label, checkpoint=checkpoint, bank=bank, output=output,
@@ -299,7 +310,7 @@ def run_stage(args) -> dict:
         "status": STAGE_STATUS,
         "version": VERSION,
         "stage": stage,
-        "banks": [dict(bank) for bank in DECLARED_EVAL_BANKS[stage]],
+        "banks": [dict(bank) for bank in banks],
         "evaluator": {"path": str(EVALUATOR), "sha256": sha256_file(EVALUATOR)},
         "search_contract": (
             None if args.search_contract is None
@@ -318,11 +329,15 @@ def run_stage(args) -> dict:
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     value.add_argument(
-        "stage", choices=("dev-m10", "shortlist-m50", "confirm-m100"),
+        "stage", choices=("screen-m20", "shortlist-m50", "confirm-m100"),
     )
     value.add_argument(
         "--checkpoint", action="append", required=True,
         help="label=path; repeat per checkpoint",
+    )
+    value.add_argument(
+        "--include-id", action="store_true",
+        help="screen-m20 only: also run the matched-ID screening bank",
     )
     value.add_argument("--output", required=True)
     value.add_argument("--device", default="cuda")

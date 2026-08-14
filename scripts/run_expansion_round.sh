@@ -7,13 +7,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_ROOT="${DATA_ROOT:-/data3/research1/sfm_hp100_certified_weighted_500x7_2671a94}"
 OUTPUT="${OUTPUT:?set OUTPUT to a new /data3/research1 directory}"
-RECIPE_ID="${RECIPE_ID:?set RECIPE_ID to the declared recipe id, e.g. A0-R1}"
+RECIPE_ID="${RECIPE_ID:?set RECIPE_ID to the declared recipe id, e.g. E4}"
 PHYSICAL_GPU="${PHYSICAL_GPU:-3}"
 ALPHA="${ALPHA:-0.0}"
-ROUNDS="${ROUNDS:-1}"
-LEARNING_RATE="${LEARNING_RATE:-1e-6}"
+ROUNDS="${ROUNDS:-5}"
+LEARNING_RATE="${LEARNING_RATE:-1e-5}"
+EXPOSURE_PASSES="${EXPOSURE_PASSES:-1}"
 LINEAGES_PER_GAMMA="${LINEAGES_PER_GAMMA:-8}"
 REUSE_ARCHIVE="${REUSE_ARCHIVE:-}"
+RESUME_FROM="${RESUME_FROM:-}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 export CUDA_VISIBLE_DEVICES="${PHYSICAL_GPU}"
@@ -22,6 +24,9 @@ export PYTHONPATH="${ROOT}/source_snapshot/overnight_run_07_12_sfm"
 REUSE_ARGS=()
 if [[ -n "${REUSE_ARCHIVE}" ]]; then
   REUSE_ARGS=(--reuse-archive "${REUSE_ARCHIVE}")
+fi
+if [[ -n "${RESUME_FROM}" ]]; then
+  REUSE_ARGS+=(--resume-from "${RESUME_FROM}")
 fi
 
 exec "${PYTHON_BIN}" \
@@ -41,7 +46,7 @@ exec "${PYTHON_BIN}" \
   --alpha "${ALPHA}" \
   --learning-rate "${LEARNING_RATE}" \
   --batch-size 64 \
-  --epochs 1 \
+  --exposure-passes "${EXPOSURE_PASSES}" \
   --grad-clip-norm 1.0 \
   --max-relative-parameter-drift 0.25 \
   --train-mode eval \
