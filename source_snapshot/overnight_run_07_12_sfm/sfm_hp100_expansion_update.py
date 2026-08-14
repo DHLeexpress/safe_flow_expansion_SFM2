@@ -1,0 +1,392 @@
+"""Positive-minus-alpha-negative CFM update for SFM2 predictive expansion.
+
+The literal declared objective is
+
+    L(theta) = mean(L_CFM(D+)) - alpha * mean(L_CFM(D-))
+
+with ``alpha=0`` as the mandatory control.  There is no normalized
+signed-gradient rho, no per-lineage alpha scaling, and no P1/P2/Ncausal/D0
+replay role: the historical ``phased_update`` convention is deliberately not
+reused.  Negative mass is ``full_set_mean``: every optimizer step evaluates
+the negative term over the entire D- set, so D- carries total objective mass
+exactly ``alpha`` regardless of its cardinality and no rare negative silently
+receives arbitrary mass through oversampling.
+
+The trainable surface is the complete flow trunk plus head
+(``trunk.inp + blocks[0] + blocks[1] + head``); every condition encoder is
+frozen and its state digest is asserted bitwise before and after each round.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import hashlib
+import math
+
+import numpy as np
+import torch
+
+import _paths  # noqa: F401
+import sfm_hp100_ball_adapter as PORT
+from sfm_hp100_ball_core.expansion import _counter_seed
+import sfm_hp100_exhaustive_hybrid as HYBRID
+
+
+VERSION = "sfm_hp100_expansion_update_v1"
+OPTIMIZER_SCOPE = "trunk_and_head"
+TRAINABLE_PARAMETER_COUNT = 327_956
+FROZEN_TRAINABLE_NAMES = (
+    "policy.head.bias",
+    "policy.head.weight",
+    "policy.trunk.blocks.0.0.bias",
+    "policy.trunk.blocks.0.0.weight",
+    "policy.trunk.blocks.0.1.bias",
+    "policy.trunk.blocks.0.1.weight",
+    "policy.trunk.blocks.0.3.bias",
+    "policy.trunk.blocks.0.3.weight",
+    "policy.trunk.blocks.1.0.bias",
+    "policy.trunk.blocks.1.0.weight",
+    "policy.trunk.blocks.1.1.bias",
+    "policy.trunk.blocks.1.1.weight",
+    "policy.trunk.blocks.1.3.bias",
+    "policy.trunk.blocks.1.3.weight",
+    "policy.trunk.inp.0.bias",
+    "policy.trunk.inp.0.weight",
+)
+NEGATIVE_LOSS_ABORT_FACTOR = 10.0
+
+
+@dataclass(frozen=True)
+class UpdateConfig:
+    alpha: float = 0.0
+    learning_rate: float = 1.0e-6
+    batch_size: int = 64
+    epochs: int = 1
+    negative_mass: str = "full_set_mean"
+    grad_clip_norm: float = 1.0
+    max_relative_parameter_drift: float = 0.25
+    # Historical expansion modules trained the adapter in eval mode (dropout
+    # inactive, deterministic gradients); pretraining used train mode.  The
+    # choice is declared here rather than inherited silently.
+    train_mode: str = "eval"
+    seed: int = 2
+
+    def validate(self) -> None:
+        if self.alpha < 0.0:
+            raise ValueError("alpha must be nonnegative")
+        if self.learning_rate <= 0.0 or self.batch_size < 1 or self.epochs < 1:
+            raise ValueError("learning rate, batch size, and epochs must be positive")
+        if self.negative_mass != "full_set_mean":
+            raise ValueError("only the declared full_set_mean negative mass is allowed")
+        if self.grad_clip_norm <= 0.0:
+            raise ValueError("gradient clip norm must be positive")
+        if not 0.0 < self.max_relative_parameter_drift < 1.0:
+            raise ValueError("relative drift gate must lie in (0,1)")
+        if self.train_mode not in {"eval", "train"}:
+            raise ValueError("train_mode must be eval or train")
+
+
+def configure_trainable(
+    adapter: PORT.HP100ExpansionPolicy,
+) -> tuple[list[torch.nn.Parameter], list[str]]:
+    """Apply the declared trunk_and_head scope and prove its exact surface."""
+    parameters = adapter.expansion_optimizer_parameters(OPTIMIZER_SCOPE)
+    names = sorted(
+        name for name, parameter in adapter.named_parameters()
+        if parameter.requires_grad
+    )
+    if tuple(names) != FROZEN_TRAINABLE_NAMES:
+        raise RuntimeError(
+            f"trainable surface drifted: {names} != {list(FROZEN_TRAINABLE_NAMES)}"
+        )
+    count = sum(parameter.numel() for parameter in parameters)
+    if count != TRAINABLE_PARAMETER_COUNT:
+        raise RuntimeError(
+            f"trunk_and_head parameter count drifted: {count} != "
+            f"{TRAINABLE_PARAMETER_COUNT}"
+        )
+    return parameters, names
+
+
+def encoder_state_sha256(adapter: PORT.HP100ExpansionPolicy) -> dict:
+    """Bitwise digest of every frozen condition-encoder state entry."""
+    grouped: dict[str, hashlib._hashlib.HASH] = {}
+    combined = hashlib.sha256()
+    for name, tensor in sorted(adapter.policy.state_dict().items()):
+        if name.startswith("trunk.") or name.startswith("head."):
+            continue
+        module = name.split(".", 1)[0]
+        value = tensor.detach().cpu().contiguous()
+        for digest in (grouped.setdefault(module, hashlib.sha256()), combined):
+            digest.update(name.encode())
+            digest.update(str(value.dtype).encode())
+            digest.update(np.asarray(value.shape, dtype=np.int64).tobytes())
+            digest.update(value.numpy().tobytes())
+    if not grouped:
+        raise RuntimeError("policy exposes no frozen condition-encoder state")
+    return {
+        **{module: digest.hexdigest() for module, digest in sorted(grouped.items())},
+        "combined": combined.hexdigest(),
+    }
+
+
+def _validate_roles(positives, negatives) -> None:
+    for row in positives:
+        if row["role"] != "positive" or not row["verification"]["valid"]:
+            raise ValueError("D+ rows must be executed exact positives")
+        if row.get("negative_reason") is not None:
+            raise ValueError("D+ rows cannot carry a negative reason")
+    declared = {"all_negative_nvp", "realized_collision", "realized_oob"}
+    for row in negatives:
+        if row["role"] != "negative" or row.get("negative_reason") not in declared:
+            raise ValueError("D- rows must carry a declared negative reason")
+        realized = row["negative_reason"] != "all_negative_nvp"
+        if bool(row["verification"]["valid"]) != realized:
+            raise ValueError("D- verifier label disagrees with its declared reason")
+
+
+def _duplicate_exposures(rows) -> int:
+    keys = [
+        (
+            row["lineage"], int(row["scenario_id"]), int(row["step"]),
+            int(row["attempt"]), int(row.get("round", 0)), int(row.get("block", 0)),
+        )
+        for row in rows
+    ]
+    return len(keys) - len(set(keys))
+
+
+def expansion_update(
+    adapter: PORT.HP100ExpansionPolicy,
+    positives: list[dict],
+    negatives: list[dict],
+    config: UpdateConfig,
+    *,
+    round_index: int,
+) -> dict:
+    """One declared update round; single pass per epoch, no oversampling."""
+    config.validate()
+    if not positives:
+        raise ValueError("expansion update requires at least one D+ row")
+    _validate_roles(positives, negatives)
+    parameters, trainable_names = configure_trainable(adapter)
+    device = parameters[0].device
+    encoder_before = encoder_state_sha256(adapter)
+    before = HYBRID._parameter_snapshot(parameters)
+    getattr(adapter, config.train_mode)()
+
+    negative_stack = None
+    if negatives:
+        negative_stack = HYBRID._stack_rows(negatives, device)
+
+    optimizer = torch.optim.Adam(parameters, lr=config.learning_rate)
+    positive_losses, negative_losses, objectives = [], [], []
+    grad_pre_clip, grad_post_clip = [], []
+    positive_grad_norms, negative_grad_norms, grad_cosines = [], [], []
+    clipped_steps = 0
+    steps = 0
+    initial_negative_loss = None
+    abort_reason = None
+
+    for epoch in range(config.epochs):
+        order = np.random.default_rng(_counter_seed(
+            config.seed, "sfm2_Dplus_order", int(round_index), epoch,
+        )).permutation(len(positives))
+        ordered = [positives[int(index)] for index in order]
+        for batch_index, start in enumerate(
+            range(0, len(ordered), config.batch_size)
+        ):
+            batch = ordered[start:start + config.batch_size]
+            contexts, candidates = HYBRID._stack_rows(batch, device)
+            HYBRID._set_step_seed(_counter_seed(
+                config.seed, "sfm2_cfm_noise", int(round_index),
+                epoch, batch_index,
+            ), device)
+            positive_per_sample = adapter.cfm_loss(
+                contexts, candidates, reduction="none",
+            )
+            positive_loss = positive_per_sample.mean()
+            negative_loss_value = None
+            if negative_stack is not None:
+                if config.alpha > 0.0:
+                    negative_per_sample = adapter.cfm_loss(
+                        *negative_stack, reduction="none",
+                    )
+                    negative_loss = negative_per_sample.mean()
+                    negative_loss_value = float(negative_loss.detach())
+                    positive_grad = torch.autograd.grad(
+                        positive_loss, parameters, allow_unused=True,
+                    )
+                    negative_grad = torch.autograd.grad(
+                        negative_loss, parameters, allow_unused=True,
+                    )
+                    positive_norm = HYBRID._gradient_norm(positive_grad, device)
+                    negative_norm = HYBRID._gradient_norm(negative_grad, device)
+                    dot = sum(
+                        (
+                            (pos * neg).sum()
+                            for pos, neg in zip(positive_grad, negative_grad)
+                            if pos is not None and neg is not None
+                        ),
+                        torch.zeros((), device=device),
+                    )
+                    positive_grad_norms.append(float(positive_norm))
+                    negative_grad_norms.append(float(negative_norm))
+                    grad_cosines.append(float(
+                        dot / (positive_norm * negative_norm + 1.0e-24)
+                    ))
+                    optimizer.zero_grad()
+                    for parameter, pos, neg in zip(
+                        parameters, positive_grad, negative_grad,
+                    ):
+                        if pos is None and neg is None:
+                            parameter.grad = None
+                        elif pos is None:
+                            parameter.grad = -config.alpha * neg.detach()
+                        elif neg is None:
+                            parameter.grad = pos.detach()
+                        else:
+                            parameter.grad = (
+                                pos.detach() - config.alpha * neg.detach()
+                            )
+                else:
+                    # alpha=0 control: the negative term contributes exactly
+                    # zero gradient but is still evaluated (without a graph)
+                    # so both arms consume identical CFM noise draws.
+                    with torch.no_grad():
+                        negative_loss_value = float(adapter.cfm_loss(
+                            *negative_stack, reduction="none",
+                        ).mean())
+                    optimizer.zero_grad()
+                    positive_loss.backward()
+            else:
+                optimizer.zero_grad()
+                positive_loss.backward()
+
+            pre_clip = float(torch.nn.utils.clip_grad_norm_(
+                parameters, config.grad_clip_norm,
+            ))
+            post_clip = float(HYBRID._gradient_norm(
+                [parameter.grad for parameter in parameters], device,
+            ))
+            clipped_steps += int(pre_clip > config.grad_clip_norm)
+            optimizer.step()
+            steps += 1
+
+            positive_loss_value = float(positive_loss.detach())
+            positive_losses.append(positive_loss_value)
+            grad_pre_clip.append(pre_clip)
+            grad_post_clip.append(post_clip)
+            if negative_loss_value is None:
+                objectives.append(positive_loss_value)
+            else:
+                negative_losses.append(negative_loss_value)
+                objectives.append(
+                    positive_loss_value - config.alpha * negative_loss_value
+                )
+                if initial_negative_loss is None:
+                    initial_negative_loss = negative_loss_value
+                elif config.alpha > 0.0 and negative_loss_value > (
+                    NEGATIVE_LOSS_ABORT_FACTOR
+                    * max(initial_negative_loss, 1.0e-12)
+                ):
+                    abort_reason = "negative_loss_divergence"
+                    break
+        if abort_reason is not None:
+            break
+
+    drift = HYBRID._relative_parameter_drift(parameters, before)
+    finite = HYBRID._finite_parameters(parameters)
+    accepted = bool(
+        finite
+        and abort_reason is None
+        and drift <= config.max_relative_parameter_drift
+    )
+    if not accepted:
+        HYBRID._restore_parameters(parameters, before)
+    encoder_after = encoder_state_sha256(adapter)
+    if encoder_after != encoder_before:
+        raise RuntimeError("a frozen condition encoder changed during the update")
+
+    positive_loss_mean = float(np.mean(positive_losses)) if positive_losses else None
+    negative_loss_mean = float(np.mean(negative_losses)) if negative_losses else None
+    objective_mean = float(np.mean(objectives)) if objectives else None
+    if (
+        positive_loss_mean is not None
+        and negative_loss_mean is not None
+        and objective_mean is not None
+        and not math.isclose(
+            objective_mean,
+            positive_loss_mean - config.alpha * negative_loss_mean,
+            rel_tol=1.0e-9, abs_tol=1.0e-9,
+        )
+    ):
+        raise RuntimeError("objective violates positive-minus-alpha-negative identity")
+    return {
+        "version": VERSION,
+        "config": asdict(config),
+        "round": int(round_index),
+        "optimizer_scope": OPTIMIZER_SCOPE,
+        "trainable_names": list(trainable_names),
+        "trainable_parameters": TRAINABLE_PARAMETER_COUNT,
+        "steps": int(steps),
+        "positive_count": len(positives),
+        "negative_count": len(negatives),
+        "negative_counts_by_reason": {
+            reason: sum(row["negative_reason"] == reason for row in negatives)
+            for reason in (
+                "all_negative_nvp", "realized_collision", "realized_oob",
+            )
+        },
+        "duplicate_exposures": _duplicate_exposures(positives)
+        + _duplicate_exposures(negatives),
+        "positive_loss_mean": positive_loss_mean,
+        "negative_loss_mean": negative_loss_mean,
+        "objective_mean": objective_mean,
+        "grad_norm_pre_clip": grad_pre_clip,
+        "grad_norm_post_clip": grad_post_clip,
+        "clipped_fraction": (clipped_steps / steps if steps else None),
+        "positive_grad_norm": (
+            float(np.mean(positive_grad_norms)) if positive_grad_norms else None
+        ),
+        "negative_grad_norm": (
+            float(np.mean(negative_grad_norms)) if negative_grad_norms else None
+        ),
+        "grad_cosine": (float(np.mean(grad_cosines)) if grad_cosines else None),
+        "relative_parameter_drift": float(drift),
+        "drift_gate": float(config.max_relative_parameter_drift),
+        "finite": bool(finite),
+        "abort_reason": abort_reason,
+        "accepted": bool(accepted),
+        "encoder_state_sha256_before": encoder_before,
+        "encoder_state_sha256_after": encoder_after,
+        "negative_mass": config.negative_mass,
+        "sample_order": (
+            "deterministic per-epoch shuffle over D+; each D+ row exposed "
+            "exactly once per epoch; negative term over the full D- set each step"
+        ),
+    }
+
+
+def checkpoint_payload(
+    adapter: PORT.HP100ExpansionPolicy,
+    *,
+    parent_checkpoint_sha256: str,
+    pretrained_checkpoint_sha256: str,
+    round_index: int,
+    alpha: float,
+) -> dict:
+    """Strict HP100 checkpoint schema so the raw evaluator loads it unchanged."""
+    return {
+        "scientific_status": "SFM2_PREDICTIVE_EXPANSION_ROUND",
+        "state_dict": {
+            key: value.detach().cpu().clone()
+            for key, value in adapter.policy.state_dict().items()
+        },
+        "config": adapter.policy.config(),
+        "parent_checkpoint_sha256": str(parent_checkpoint_sha256),
+        "pretrained_checkpoint_sha256": str(pretrained_checkpoint_sha256),
+        "optimizer_scope": OPTIMIZER_SCOPE,
+        "round": int(round_index),
+        "alpha": float(alpha),
+        "promotable": False,
+    }

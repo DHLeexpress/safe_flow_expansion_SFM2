@@ -518,6 +518,21 @@
       "sha256": "931ecabbe1ad0aae34702fd24a09eaf5626982e5ec4141a7e1ae025d0d21b880"
     },
     {
+      "path": "scripts/run_expansion_archive.sh",
+      "bytes": 1892,
+      "sha256": "15af93b8c62b8e6c147bd888ac8df8df4f502bb47cd646655523159ecb2c8f2e"
+    },
+    {
+      "path": "scripts/run_expansion_funnel.sh",
+      "bytes": 1333,
+      "sha256": "60f644081b9a05bb7a7ae046323ecb848b5e49cd991bbd132fe8b8b6f5b45ab6"
+    },
+    {
+      "path": "scripts/run_expansion_round.sh",
+      "bytes": 2130,
+      "sha256": "44fb1abe40198086d0f6f1a46c8ef7e041afe9ff3a3bfc8d5f41cacabb37e5e1"
+    },
+    {
       "path": "scripts/run_predictive_execution_diagnostic.sh",
       "bytes": 1405,
       "sha256": "c9aa6db4759a5c281ec13af4f1cf5283e8c30259afad50013213b69f6501f493"
@@ -531,6 +546,11 @@
       "path": "scripts/sfm_hp100_early_eval_report.py",
       "bytes": 13666,
       "sha256": "9955913b79615dc014c0a998dae87b74b86443dd780ca4a25be858e66c7db98d"
+    },
+    {
+      "path": "scripts/sfm_hp100_expansion_eval_report.py",
+      "bytes": 14632,
+      "sha256": "6f09cd289b69a04d26c1843b738d2289a435c5b9b07270a99ce1c9aa98c9559e"
     },
     {
       "path": "scripts/sfm_snapshot.py",
@@ -1318,6 +1338,31 @@
       "sha256": "a1d0768b73902bc0a5b7b5d690a03f48151fac97c704623e529f9c8f9a712297"
     },
     {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_admission.py",
+      "bytes": 5780,
+      "sha256": "6a335e741dd4df2c88831864109c11d33aa1a64475a8f05f82f65ce2e6904ae2"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_archive.py",
+      "bytes": 12169,
+      "sha256": "ecde188768e5043a6f1e1de42159948373fc3aaf4d269ae898e5bfa9daa26ab5"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_funnel.py",
+      "bytes": 5475,
+      "sha256": "527efe421b2ca526d3e08f5913ccae5b31145ada38c05b967bda0995bb023253"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_trace.py",
+      "bytes": 3506,
+      "sha256": "4c5b5e4562e54fe054be9a7e61a54d366fa570dc71c24aa67f05abb1fb990a71"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_update.py",
+      "bytes": 8983,
+      "sha256": "cf422e158018ed349d1da4b553eae45b910122a2978ca900848d8d37a3a63960"
+    },
+    {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expert_mechanism_viz.py",
       "bytes": 3968,
       "sha256": "1ac59e22af92bc5b712435531e67ab8009da9e4d4e2259dde873ef414da76fa7"
@@ -1661,6 +1706,36 @@
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_exhaustive_hybrid_viz.py",
       "bytes": 17654,
       "sha256": "b11402671eaaafd6240ac6bd0b6b5c9d760f46fe911fb702652702b5f2eb08b4"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_archive.py",
+      "bytes": 22103,
+      "sha256": "a7e130df54be345e255f604110d18349fc5fc536ef815eca84a2d211b6872c1a"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_funnel.py",
+      "bytes": 13534,
+      "sha256": "9c6824c85719a8b193f5d22774015191e683e7f7c10eb8f6dcd3653662c218f9"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_round.py",
+      "bytes": 12981,
+      "sha256": "7da42e60b36dbe939a46bdb6421f4e6fcdd48fc52e4d7d9db4bdf1c66e9dc5eb"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_search.py",
+      "bytes": 8607,
+      "sha256": "e65537b255677b0df85da7fcccf627905b2ec7547a861aa5940c60a76cdecfc6"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_status.py",
+      "bytes": 2028,
+      "sha256": "b809af8f4e45efd2c43517ac3a8d1cb8a8e205f93c498c8994d07be51141a9c8"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_update.py",
+      "bytes": 16271,
+      "sha256": "8a2e3d1a574e6ca9ee3ca5cb7db3d31d4c04fe366a947b75084cc9fb24398ad3"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expert_mechanism_viz.py",
