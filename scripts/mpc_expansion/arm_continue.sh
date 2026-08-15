@@ -2,8 +2,9 @@
 # Continue one MPC-rule arm r2..r5 from resume_r1, then M20-screen r2-r5.
 # Usage: arm_continue.sh <ARM_DIR_NAME> <RECIPE_ID> <SCOPE> <E> <LABEL_PREFIX>
 # Optional env: REPLAY_WINDOW (declared archive replay window, default unset
-# = orchestrator default 1); MPC_LAM/MPC_RHO/MPC_R_EFF/MPC_SIGMA pass through
-# to the driver.
+# = orchestrator default 1); POSITIVE_MASS (declared D+ mass mode, default
+# unset = orchestrator default pooled_mean); MPC_LAM/MPC_RHO/MPC_R_EFF/
+# MPC_SIGMA pass through to the driver.
 set -uo pipefail
 ARM=$1; RID=$2; SCOPE=$3; E=$4; PFX=$5
 cd "$HOME/projects/safe_flow_expansion_SFM2-claude-cfc09ad"
@@ -18,6 +19,9 @@ stamp() { echo "[$(date -u +%FT%TZ)] $*"; }
 REPLAY_ARGS=()
 if [ -n "${REPLAY_WINDOW:-}" ]; then
   REPLAY_ARGS=(--replay-window "$REPLAY_WINDOW")
+fi
+if [ -n "${POSITIVE_MASS:-}" ]; then
+  REPLAY_ARGS+=(--positive-mass "$POSITIVE_MASS")
 fi
 
 if [ ! -f "$D/checkpoint_r5.pt" ]; then

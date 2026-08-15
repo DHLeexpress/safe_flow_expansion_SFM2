@@ -556,6 +556,7 @@ def run_recipe(args) -> dict:
         train_mode=str(args.train_mode),
         optimizer_scope=str(args.optimizer_scope),
         replay_window=int(args.replay_window),
+        positive_mass=str(args.positive_mass),
         seed=int(args.update_seed),
     )
     update_config.validate()
@@ -580,6 +581,9 @@ def run_recipe(args) -> dict:
         # Resume states written before the replay window existed were
         # implicitly fresh-archive-only.
         saved_config.setdefault("replay_window", 1)
+        # Resume states written before the mass modes existed were implicitly
+        # the original pooled mean.
+        saved_config.setdefault("positive_mass", "pooled_mean")
         if saved_config != asdict(update_config):
             raise RuntimeError(
                 "resume requires the identical declared update recipe"
@@ -1010,6 +1014,10 @@ def parser() -> argparse.ArgumentParser:
         choices=tuple(sorted(UPD.DECLARED_TRAINABLE_SURFACES)),
     )
     value.add_argument("--replay-window", type=int, default=1)
+    value.add_argument(
+        "--positive-mass", default="pooled_mean",
+        choices=UPD.POSITIVE_MASS_MODES,
+    )
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--scene-profile", default="double_density_velocity_ood")
     value.add_argument("--gammas", default="0.1,0.2,0.3,0.4,0.5,0.7,1.0")

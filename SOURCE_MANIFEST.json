@@ -524,8 +524,8 @@
     },
     {
       "path": "scripts/mpc_expansion/arm_continue.sh",
-      "bytes": 2426,
-      "sha256": "4db8656a31e8661662dc08ede6d8d57d5362e2db2b3d6567ad1c5f3f77a8d626"
+      "bytes": 2608,
+      "sha256": "e77ecbd4bf80592e5e7439f0d3dcbd2e10437b009565c140a074cd03915cb1de"
     },
     {
       "path": "scripts/mpc_expansion/mpc_expansion_chain.sh",
@@ -1373,6 +1373,11 @@
       "sha256": "c4c86658819fc6d2ce59f9dd2aedfab5d39cdc527111caed145434f04698b254"
     },
     {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_mass.py",
+      "bytes": 10516,
+      "sha256": "d85f9993d65c676ee17a0143d7786a76ef3b6d2f1444dae781db6f55c4699596"
+    },
+    {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_expansion_replay.py",
       "bytes": 11253,
       "sha256": "0d4986fea9e4d145d0c9729496ff398a4a648516c2e1324f70c33bfb6df5bf5c"
@@ -1754,8 +1759,8 @@
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_round.py",
-      "bytes": 43183,
-      "sha256": "44f98dcc370b540e97bf5ea8a366ef184db35616c71f92528ce42d3fde59a63e"
+      "bytes": 43529,
+      "sha256": "b77cde32d718352bbaead088a0b932dbe22b38e645dc431e0b500e9998a49540"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_search.py",
@@ -1769,8 +1774,8 @@
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expansion_update.py",
-      "bytes": 23852,
-      "sha256": "d56c14f27413263fcb7ca7169cea12a7c23c2bcc8a264fa68775afb7c224de91"
+      "bytes": 29078,
+      "sha256": "cd0fa80ebd4d5cd4d7d53140762efb831d0ee98b4c0b064f35834fa32f6a239f"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_expert_mechanism_viz.py",

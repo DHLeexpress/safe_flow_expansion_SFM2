@@ -94,6 +94,17 @@ _EXCLUDED_TRUNK_PREFIXES = {
     ),
 }
 NEGATIVE_LOSS_ABORT_FACTOR = 10.0
+# Declared D+ mass modes.  pooled_mean is the original per-batch mean; the
+# two weighted modes compute one fixed weight vector over the whole D+ set
+# per round (summing to exactly 1) and each optimizer step contributes
+# sum(w_i * L_i) over its batch: batch sums are partial masses of that fixed
+# global weighting, never re-normalized per batch, so one complete pass
+# carries total positive mass exactly 1.
+POSITIVE_MASS_MODES = ("pooled_mean", "per_gamma_balanced", "progress_weighted")
+# progress_weighted floors every weight at this fraction of the uniform
+# 1/|D+| weight before the single final renormalization, so no executed
+# positive is ever silently erased from the objective.
+PROGRESS_WEIGHT_FLOOR_FRACTION = 0.25
 
 
 @dataclass(frozen=True)
@@ -125,6 +136,12 @@ class UpdateConfig:
     # keeps evaluating the fresh archive alone, and the window is part of the
     # declared recipe identity checked on resume.
     replay_window: int = 1
+    # Declared D+ mass mode (see POSITIVE_MASS_MODES).  pooled_mean keeps the
+    # original per-batch-mean code path bit-for-bit; per_gamma_balanced gives
+    # every gamma present equal total mass; progress_weighted keeps each
+    # gamma's pooled mass share but redistributes it inside the gamma
+    # proportionally to the selected candidate's H10 goal progress.
+    positive_mass: str = "pooled_mean"
     seed: int = 2
 
     def validate(self) -> None:
@@ -147,6 +164,10 @@ class UpdateConfig:
             raise ValueError("train_mode must be eval or train")
         if self.replay_window < 1:
             raise ValueError("replay window must be a positive round count")
+        if self.positive_mass not in POSITIVE_MASS_MODES:
+            raise ValueError(
+                f"positive_mass must be one of {list(POSITIVE_MASS_MODES)}"
+            )
         if self.optimizer_scope not in DECLARED_TRAINABLE_SURFACES:
             raise ValueError(
                 "optimizer_scope must be one of "
@@ -262,6 +283,59 @@ def _in_archive_duplicate_rows(rows) -> int:
     return len(keys) - len(set(keys))
 
 
+def positive_mass_weights(positives: list[dict], mode: str) -> np.ndarray:
+    """One fixed, global D+ weight vector for the declared mass mode.
+
+    The vector sums to exactly 1 over the full D+ set and is computed once
+    per round; batches index into it, so batch sums are partial masses of a
+    fixed global weighting (there is no per-batch renormalization).
+
+    - ``pooled_mean``: uniform ``1/n`` (returned for the audit only — the
+      update itself keeps the original per-batch-mean code path bit-for-bit).
+    - ``per_gamma_balanced``: every gamma present carries equal total mass
+      ``1/n_gammas``, split uniformly inside the gamma.
+    - ``progress_weighted``: each gamma keeps its pooled mass share
+      ``n_gamma/n``; inside the gamma, mass is proportional to the selected
+      candidate's H10 goal progress
+      (``row["prediction_audit"]["H10_goal_progress"]`` — the value the
+      selector already cross-checked against the exact verifier's progress),
+      with nonpositive progress clipped to zero.  Every weight is floored at
+      ``PROGRESS_WEIGHT_FLOOR_FRACTION`` of uniform before one final global
+      renormalization, so no row's mass vanishes.
+    """
+    if mode not in POSITIVE_MASS_MODES:
+        raise ValueError(f"undeclared positive mass mode: {mode!r}")
+    count = len(positives)
+    if count == 0:
+        raise ValueError("positive mass weights require at least one D+ row")
+    uniform = 1.0 / count
+    if mode == "pooled_mean":
+        return np.full(count, uniform, dtype=np.float64)
+    gammas = np.asarray([float(row["gamma"]) for row in positives])
+    unique = np.unique(gammas)
+    weights = np.empty(count, dtype=np.float64)
+    if mode == "per_gamma_balanced":
+        for gamma in unique:
+            mask = gammas == gamma
+            weights[mask] = 1.0 / (unique.size * int(mask.sum()))
+        return weights
+    progress = np.asarray([
+        float(row["prediction_audit"]["H10_goal_progress"])
+        for row in positives
+    ])
+    for gamma in unique:
+        mask = gammas == gamma
+        share = float(mask.sum()) / count
+        base = np.clip(progress[mask], 0.0, None)
+        total = float(base.sum())
+        if total <= 0.0:
+            weights[mask] = share / int(mask.sum())
+        else:
+            weights[mask] = share * base / total
+    weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
+    return weights / float(weights.sum())
+
+
 def expansion_update(
     adapter: PORT.HP100ExpansionPolicy,
     positives: list[dict],
@@ -281,6 +355,8 @@ def expansion_update(
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")
     _validate_roles(positives, negatives)
+    mass_weights = positive_mass_weights(positives, config.positive_mass)
+    row_gammas = np.asarray([float(row["gamma"]) for row in positives])
     parameters, trainable_names = configure_trainable(
         adapter, config.optimizer_scope,
     )
@@ -322,6 +398,7 @@ def expansion_update(
             config.seed, "sfm2_Dplus_order", int(round_index), epoch,
         )).permutation(len(positives))
         ordered = [positives[int(index)] for index in order]
+        ordered_weights = mass_weights[order]
         for batch_index, start in enumerate(
             range(0, len(ordered), config.batch_size)
         ):
@@ -334,7 +411,17 @@ def expansion_update(
             positive_per_sample = adapter.cfm_loss(
                 contexts, candidates, reduction="none",
             )
-            positive_loss = positive_per_sample.mean()
+            if config.positive_mass == "pooled_mean":
+                # Original semantics, untouched: unit objective mass per step.
+                positive_loss = positive_per_sample.mean()
+            else:
+                # Partial mass of the fixed global weighting: one complete
+                # pass sums to total positive mass exactly 1.
+                batch_weights = torch.as_tensor(
+                    ordered_weights[start:start + config.batch_size],
+                    device=device, dtype=positive_per_sample.dtype,
+                )
+                positive_loss = (batch_weights * positive_per_sample).sum()
             negative_loss_value = None
             if negative_stack is not None:
                 if config.alpha > 0.0:
@@ -520,6 +607,20 @@ def expansion_update(
         "encoder_state_sha256_before": encoder_before,
         "encoder_state_sha256_after": encoder_after,
         "negative_mass": config.negative_mass,
+        # Declared D+ mass mode with its effective per-gamma objective mass
+        # and the fixed global weight vector's statistics.  For the weighted
+        # modes each per-step positive term is a partial mass of this fixed
+        # weighting; for pooled_mean the weights are the uniform reference.
+        "positive_mass": config.positive_mass,
+        "positive_mass_per_gamma": {
+            f"{gamma:g}": float(mass_weights[row_gammas == gamma].sum())
+            for gamma in np.unique(row_gammas)
+        },
+        "positive_weight_stats": {
+            "min": float(mass_weights.min()),
+            "max": float(mass_weights.max()),
+            "mean": float(mass_weights.mean()),
+        },
         "sample_order": (
             "E deterministic reshuffled complete passes over D+; each D+ row "
             "exposed exactly once per pass; negative term over the full D- "
