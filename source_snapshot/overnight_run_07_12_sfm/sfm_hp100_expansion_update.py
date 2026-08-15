@@ -118,6 +118,13 @@ class UpdateConfig:
     # reduced last_two_blocks_and_head arm that leaves trunk.inp frozen, or
     # the minimal last_block_and_head arm that also freezes blocks[0].
     optimizer_scope: str = OPTIMIZER_SCOPE
+    # Replay window over per-round archives: round k trains on the union of
+    # the D+/D- archives of rounds max(1, k-N+1)..k, N=1 being the original
+    # fresh-archive-only behavior.  Only the two declared roles ever enter
+    # the union (no relabeling, no historical P1/P2 revival), the health gate
+    # keeps evaluating the fresh archive alone, and the window is part of the
+    # declared recipe identity checked on resume.
+    replay_window: int = 1
     seed: int = 2
 
     def validate(self) -> None:
@@ -138,6 +145,8 @@ class UpdateConfig:
             raise ValueError("relative drift gate must lie in (0,1)")
         if self.train_mode not in {"eval", "train"}:
             raise ValueError("train_mode must be eval or train")
+        if self.replay_window < 1:
+            raise ValueError("replay window must be a positive round count")
         if self.optimizer_scope not in DECLARED_TRAINABLE_SURFACES:
             raise ValueError(
                 "optimizer_scope must be one of "

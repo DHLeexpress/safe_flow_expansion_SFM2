@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Continue one MPC-rule arm r2..r5 from resume_r1, then M20-screen r2-r5.
 # Usage: arm_continue.sh <ARM_DIR_NAME> <RECIPE_ID> <SCOPE> <E> <LABEL_PREFIX>
+# Optional env: REPLAY_WINDOW (declared archive replay window, default unset
+# = orchestrator default 1); MPC_LAM/MPC_RHO/MPC_R_EFF/MPC_SIGMA pass through
+# to the driver.
 set -uo pipefail
 ARM=$1; RID=$2; SCOPE=$3; E=$4; PFX=$5
 cd "$HOME/projects/safe_flow_expansion_SFM2-claude-cfc09ad"
@@ -11,6 +14,11 @@ D=$M/$ARM
 export CUDA_VISIBLE_DEVICES=3
 export PYTHONPATH=$PWD/source_snapshot/overnight_run_07_12_sfm
 stamp() { echo "[$(date -u +%FT%TZ)] $*"; }
+
+REPLAY_ARGS=()
+if [ -n "${REPLAY_WINDOW:-}" ]; then
+  REPLAY_ARGS=(--replay-window "$REPLAY_WINDOW")
+fi
 
 if [ ! -f "$D/checkpoint_r5.pt" ]; then
   stamp "$RID rounds 2-5 (resume from r1)"
@@ -28,6 +36,7 @@ if [ ! -f "$D/checkpoint_r5.pt" ]; then
     --scene-profile double_density_velocity_ood \
     --gammas 0.1,0.2,0.3,0.4,0.5,0.7,1.0 --lineages-per-gamma 8 \
     --max-steps 180 --max-attempts 32 --ess-target 0.1 --seed 41 \
+    ${REPLAY_ARGS[@]+"${REPLAY_ARGS[@]}"} \
     >> "$D.log" 2>&1 || stamp "$RID CONTINUATION FAILED rc=$?"
 fi
 echo "ROUNDS_PHASE_DONE_$RID"

@@ -11,7 +11,11 @@ any saved round can later resume exactly to r6+ via ``--resume-from``.
 The acquisition reference representation, RBF calibration support, and every
 condition encoder stay pinned to the canonical r0 checkpoint for every round:
 there is no round-to-round GP support accumulation, no buffer rule, and no
-historical replay role.
+historical replay role.  The optional declared ``--replay-window N`` widens
+the training set of round k to the union of the round archives
+max(1, k-N+1)..k — still only the two declared D+/D- roles, loaded lazily
+per round, with the acquisition health gate evaluating the fresh archive
+alone and the window checked as part of the recipe identity on resume.
 
 The first-round archive may be shared between qualification arms (gather
 once, train per alpha) through ``--reuse-archive``; the archive provenance is
@@ -383,6 +387,54 @@ def fallback_diagnosis(
     }
 
 
+def replay_union(
+    archive_ledger: list[dict],
+    fresh_rows: list[dict],
+    *,
+    round_index: int,
+    replay_window: int,
+) -> tuple[list[dict], dict]:
+    """Training union over the declared replay window, older rounds first.
+
+    The union is rebuilt lazily each round from the per-round archive files
+    recorded in the ledger, so memory stays bounded by one window rather
+    than the full arm history.  ``replay_window=1`` returns exactly the
+    fresh rows (the original behavior).  Replayed rows never feed the
+    acquisition health gate — they join for training only.
+    """
+    window = int(replay_window)
+    if window < 1:
+        raise ValueError("replay window must be a positive round count")
+    start_round = max(1, int(round_index) - window + 1)
+    sources = []
+    union: list[dict] = []
+    for record in archive_ledger:
+        source_round = int(record["round"])
+        if not start_round <= source_round < int(round_index):
+            continue
+        replayed = ARCH.load_archive(Path(record["path"]))["rows"]
+        union.extend(replayed)
+        sources.append({
+            "round": source_round,
+            "fresh": False,
+            "path": str(record["path"]),
+            "sample_counts": ARCH._sample_counts(replayed),
+        })
+    union.extend(fresh_rows)
+    sources.append({
+        "round": int(round_index),
+        "fresh": True,
+        "sample_counts": ARCH._sample_counts(fresh_rows),
+    })
+    marker = {
+        "window": window,
+        "first_round_in_union": start_round,
+        "sources": sources,
+        "union_sample_counts": ARCH._sample_counts(union),
+    }
+    return union, marker
+
+
 def split_roles(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     positives = [row for row in rows if row["role"] == "positive"]
     negatives = [row for row in rows if row["role"] == "negative"]
@@ -503,6 +555,7 @@ def run_recipe(args) -> dict:
         max_relative_parameter_drift=float(args.max_relative_parameter_drift),
         train_mode=str(args.train_mode),
         optimizer_scope=str(args.optimizer_scope),
+        replay_window=int(args.replay_window),
         seed=int(args.update_seed),
     )
     update_config.validate()
@@ -524,6 +577,9 @@ def run_recipe(args) -> dict:
         # refused below.  Recipe identity is checked before the digest so a
         # scope change reports as a recipe mismatch, not encoder drift.
         saved_config.setdefault("optimizer_scope", UPD.OPTIMIZER_SCOPE)
+        # Resume states written before the replay window existed were
+        # implicitly fresh-archive-only.
+        saved_config.setdefault("replay_window", 1)
         if saved_config != asdict(update_config):
             raise RuntimeError(
                 "resume requires the identical declared update recipe"
@@ -727,7 +783,12 @@ def run_recipe(args) -> dict:
             )
             break
 
-        positives, negatives = split_roles(rows)
+        train_rows, replay_marker = replay_union(
+            archive_ledger, rows,
+            round_index=round_index,
+            replay_window=update_config.replay_window,
+        )
+        positives, negatives = split_roles(train_rows)
         heartbeat.beat(
             status="running", phase="update", round=round_index,
             samples=ARCH._sample_counts(rows),
@@ -766,6 +827,9 @@ def run_recipe(args) -> dict:
             "round": round_index,
             "archive": archive_record,
             "acquisition_statistics": stats,
+            # Per-round-source accounting of the declared replay window; the
+            # union counts are what the update below actually trained on.
+            "replay": replay_marker,
             "health": {
                 "passed": health["passed"],
                 "path": str(output / f"ROUND_{round_index}_HEALTH.json"),
@@ -870,6 +934,7 @@ def qualification_audit(round_markers: list[dict], provenance: dict) -> dict:
         per_round.append({
             "round": marker["round"],
             "sample_counts": archive["sample_counts"],
+            "replay": marker.get("replay"),
             "negative_counts_by_reason": update["negative_counts_by_reason"],
             "retry": retry,
             "per_gamma_controller_training_only": per_gamma_controller,
@@ -944,6 +1009,7 @@ def parser() -> argparse.ArgumentParser:
         "--optimizer-scope", default=UPD.OPTIMIZER_SCOPE,
         choices=tuple(sorted(UPD.DECLARED_TRAINABLE_SURFACES)),
     )
+    value.add_argument("--replay-window", type=int, default=1)
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--scene-profile", default="double_density_velocity_ood")
     value.add_argument("--gammas", default="0.1,0.2,0.3,0.4,0.5,0.7,1.0")
