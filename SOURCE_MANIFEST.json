@@ -478,6 +478,11 @@
       "sha256": "19f83f865056db73aea656d617680c1078ed5cf69e0a5fdb68cc4f5c14b74cbd"
     },
     {
+      "path": "provenance/mpc_expansion_20260815/M20_LEDGER.md",
+      "bytes": 3966,
+      "sha256": "ff50442c5b62882d60b0659a6be6ee37a1ec2ec05ec549311a2ec9c9ff5419b1"
+    },
+    {
       "path": "provenance/pre_expansion/double_shift_ood_metrics.json",
       "bytes": 1354535,
       "sha256": "566ac3fc87b727ad0957b837aca68a1fdd24777040584791bd372eb25e3b8977"
@@ -516,6 +521,21 @@
       "path": "scripts/calibrate_execution_lambda.py",
       "bytes": 448,
       "sha256": "931ecabbe1ad0aae34702fd24a09eaf5626982e5ec4141a7e1ae025d0d21b880"
+    },
+    {
+      "path": "scripts/mpc_expansion/arm_continue.sh",
+      "bytes": 2105,
+      "sha256": "b072fa49e11f0a5eb0ed0e200180f31a9121ac8c04008253977eab8924e6013a"
+    },
+    {
+      "path": "scripts/mpc_expansion/mpc_expansion_chain.sh",
+      "bytes": 3296,
+      "sha256": "2efc7bee01be84477243e8cdaaa004aff8b2510918169d008d55b71699f8292e"
+    },
+    {
+      "path": "scripts/mpc_expansion/mpc_round_driver.py",
+      "bytes": 1853,
+      "sha256": "c73f6f6c9852d7fe7dc48951de6caaa5ea99efca186a663829e1e6d5fd34808f"
     },
     {
       "path": "scripts/run_expansion_archive.sh",
