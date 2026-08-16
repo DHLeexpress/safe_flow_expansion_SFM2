@@ -557,6 +557,7 @@ def run_recipe(args) -> dict:
         optimizer_scope=str(args.optimizer_scope),
         replay_window=int(args.replay_window),
         positive_mass=str(args.positive_mass),
+        avoid_mass=float(args.avoid_mass),
         seed=int(args.update_seed),
     )
     update_config.validate()
@@ -584,6 +585,9 @@ def run_recipe(args) -> dict:
         # Resume states written before the mass modes existed were implicitly
         # the original pooled mean.
         saved_config.setdefault("positive_mass", "pooled_mean")
+        # Resume states written before the mode tree existed carry the
+        # declared default avoidance split (inert outside mode_gamma_tree).
+        saved_config.setdefault("avoid_mass", 0.65)
         if saved_config != asdict(update_config):
             raise RuntimeError(
                 "resume requires the identical declared update recipe"
@@ -1018,6 +1022,7 @@ def parser() -> argparse.ArgumentParser:
         "--positive-mass", default="pooled_mean",
         choices=UPD.POSITIVE_MASS_MODES,
     )
+    value.add_argument("--avoid-mass", type=float, default=0.65)
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--scene-profile", default="double_density_velocity_ood")
     value.add_argument("--gammas", default="0.1,0.2,0.3,0.4,0.5,0.7,1.0")

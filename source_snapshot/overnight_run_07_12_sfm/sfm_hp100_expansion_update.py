@@ -100,11 +100,18 @@ NEGATIVE_LOSS_ABORT_FACTOR = 10.0
 # sum(w_i * L_i) over its batch: batch sums are partial masses of that fixed
 # global weighting, never re-normalized per batch, so one complete pass
 # carries total positive mass exactly 1.
-POSITIVE_MASS_MODES = ("pooled_mean", "per_gamma_balanced", "progress_weighted")
-# progress_weighted floors every weight at this fraction of the uniform
+POSITIVE_MASS_MODES = (
+    "pooled_mean", "per_gamma_balanced", "progress_weighted",
+    "mode_gamma_tree",
+)
+# The weighted modes floor every weight at this fraction of the uniform
 # 1/|D+| weight before the single final renormalization, so no executed
 # positive is ever silently erased from the objective.
 PROGRESS_WEIGHT_FLOOR_FRACTION = 0.25
+# mode_gamma_tree: inside the avoidance branch, rows where safety actively
+# changed the selected candidate (hard_avoid) carry this share of the
+# branch mass; safe-pass and unknown-shadow rows share the remainder.
+HARD_AVOID_SHARE = 2.0 / 3.0
 
 
 @dataclass(frozen=True)
@@ -140,8 +147,14 @@ class UpdateConfig:
     # original per-batch-mean code path bit-for-bit; per_gamma_balanced gives
     # every gamma present equal total mass; progress_weighted keeps each
     # gamma's pooled mass share but redistributes it inside the gamma
-    # proportionally to the selected candidate's H10 goal progress.
+    # proportionally to the selected candidate's H10 goal progress;
+    # mode_gamma_tree anchors on goal-seeking rows while concentrating
+    # learning on tagged avoidance rows (see positive_mass_weights).
     positive_mass: str = "pooled_mean"
+    # mode_gamma_tree only: total objective mass carried by the avoidance
+    # branch (interaction rows); goal-seeking rows anchor the remainder.
+    # Ignored by every other mass mode.
+    avoid_mass: float = 0.65
     seed: int = 2
 
     def validate(self) -> None:
@@ -168,6 +181,8 @@ class UpdateConfig:
             raise ValueError(
                 f"positive_mass must be one of {list(POSITIVE_MASS_MODES)}"
             )
+        if not 0.0 < self.avoid_mass < 1.0:
+            raise ValueError("avoid_mass must lie in (0,1)")
         if self.optimizer_scope not in DECLARED_TRAINABLE_SURFACES:
             raise ValueError(
                 "optimizer_scope must be one of "
@@ -283,7 +298,22 @@ def _in_archive_duplicate_rows(rows) -> int:
     return len(keys) - len(set(keys))
 
 
-def positive_mass_weights(positives: list[dict], mode: str) -> np.ndarray:
+def _leaf_gamma_uniform(
+    weights: np.ndarray, indices: np.ndarray, gammas: np.ndarray, mass: float,
+) -> None:
+    """Split ``mass`` equally across the gammas present in one tree leaf,
+    uniformly per row inside each gamma (the per_gamma_balanced convention,
+    applied leaf-locally)."""
+    leaf_gammas = gammas[indices]
+    unique = np.unique(leaf_gammas)
+    for gamma in unique:
+        members = indices[leaf_gammas == gamma]
+        weights[members] = mass / (unique.size * members.size)
+
+
+def positive_mass_weights(
+    positives: list[dict], mode: str, *, avoid_mass: float = 0.65,
+) -> np.ndarray:
     """One fixed, global D+ weight vector for the declared mass mode.
 
     The vector sums to exactly 1 over the full D+ set and is computed once
@@ -302,6 +332,16 @@ def positive_mass_weights(positives: list[dict], mode: str) -> np.ndarray:
       with nonpositive progress clipped to zero.  Every weight is floored at
       ``PROGRESS_WEIGHT_FLOOR_FRACTION`` of uniform before one final global
       renormalization, so no row's mass vanishes.
+    - ``mode_gamma_tree``: two-level declared mass tree over the
+      ``row["mode_tags"]`` set by ``sfm_hp100_mode_tags.tag_rows`` (fail
+      closed on untagged rows).  Avoidance rows (``interaction`` True) carry
+      total mass ``avoid_mass`` and goal-seeking rows anchor the remainder;
+      inside avoidance, hard_avoid rows (``changed`` True) carry
+      ``HARD_AVOID_SHARE`` of the branch and safe-pass/unknown rows the rest.
+      An empty branch's mass moves to its sibling.  Every leaf splits its
+      mass per gamma equally, then uniformly per row; weights are floored at
+      ``PROGRESS_WEIGHT_FLOOR_FRACTION`` of uniform and renormalized once
+      globally to total mass exactly 1.
     """
     if mode not in POSITIVE_MASS_MODES:
         raise ValueError(f"undeclared positive mass mode: {mode!r}")
@@ -319,6 +359,43 @@ def positive_mass_weights(positives: list[dict], mode: str) -> np.ndarray:
             mask = gammas == gamma
             weights[mask] = 1.0 / (unique.size * int(mask.sum()))
         return weights
+    if mode == "mode_gamma_tree":
+        if not 0.0 < float(avoid_mass) < 1.0:
+            raise ValueError("avoid_mass must lie in (0,1)")
+        # Fail closed on untagged rows: KeyError on either level.
+        interaction = np.asarray([
+            bool(row["mode_tags"]["interaction"]) for row in positives
+        ])
+        hard = np.asarray([
+            row["mode_tags"]["changed"] is True for row in positives
+        ])
+        indices = np.arange(count)
+        goal = indices[~interaction]
+        hard_avoid = indices[interaction & hard]
+        soft_avoid = indices[interaction & ~hard]
+        weights[:] = 0.0
+        # Empty-branch reassignment at the top level...
+        avoidance_total = float(avoid_mass)
+        goal_total = 1.0 - avoidance_total
+        if goal.size == 0:
+            avoidance_total, goal_total = 1.0, 0.0
+        if hard_avoid.size + soft_avoid.size == 0:
+            avoidance_total, goal_total = 0.0, 1.0
+        # ...and inside the avoidance branch.
+        hard_total = avoidance_total * HARD_AVOID_SHARE
+        soft_total = avoidance_total - hard_total
+        if hard_avoid.size == 0:
+            hard_total, soft_total = 0.0, avoidance_total
+        if soft_avoid.size == 0 and hard_avoid.size > 0:
+            hard_total, soft_total = avoidance_total, 0.0
+        for leaf, mass in (
+            (goal, goal_total), (hard_avoid, hard_total),
+            (soft_avoid, soft_total),
+        ):
+            if leaf.size and mass > 0.0:
+                _leaf_gamma_uniform(weights, leaf, gammas, mass)
+        weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
+        return weights / float(weights.sum())
     progress = np.asarray([
         float(row["prediction_audit"]["H10_goal_progress"])
         for row in positives
@@ -334,6 +411,24 @@ def positive_mass_weights(positives: list[dict], mode: str) -> np.ndarray:
             weights[mask] = share * base / total
     weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
     return weights / float(weights.sum())
+
+
+def _branch_masses(positives: list[dict], weights: np.ndarray) -> dict:
+    """Audited effective mass per mode_gamma_tree behavior branch."""
+    masses = {"goal_seeking": 0.0, "hard_avoid": 0.0,
+              "safe_pass_or_unknown": 0.0}
+    counts = {key: 0 for key in masses}
+    for row, weight in zip(positives, weights):
+        tags = row["mode_tags"]
+        if not tags["interaction"]:
+            branch = "goal_seeking"
+        elif tags["changed"] is True:
+            branch = "hard_avoid"
+        else:
+            branch = "safe_pass_or_unknown"
+        masses[branch] += float(weight)
+        counts[branch] += 1
+    return {"mass": masses, "rows": counts}
 
 
 def expansion_update(
@@ -355,7 +450,9 @@ def expansion_update(
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")
     _validate_roles(positives, negatives)
-    mass_weights = positive_mass_weights(positives, config.positive_mass)
+    mass_weights = positive_mass_weights(
+        positives, config.positive_mass, avoid_mass=config.avoid_mass,
+    )
     row_gammas = np.asarray([float(row["gamma"]) for row in positives])
     parameters, trainable_names = configure_trainable(
         adapter, config.optimizer_scope,
@@ -621,6 +718,17 @@ def expansion_update(
             "max": float(mass_weights.max()),
             "mean": float(mass_weights.mean()),
         },
+        # mode_gamma_tree only: effective mass per declared behavior branch
+        # (goal_seeking / hard_avoid / safe-pass-or-unknown) and the declared
+        # avoidance split; None for the other modes.
+        "avoid_mass": (
+            float(config.avoid_mass)
+            if config.positive_mass == "mode_gamma_tree" else None
+        ),
+        "positive_mass_per_branch": (
+            _branch_masses(positives, mass_weights)
+            if config.positive_mass == "mode_gamma_tree" else None
+        ),
         "sample_order": (
             "E deterministic reshuffled complete passes over D+; each D+ row "
             "exposed exactly once per pass; negative term over the full D- "
