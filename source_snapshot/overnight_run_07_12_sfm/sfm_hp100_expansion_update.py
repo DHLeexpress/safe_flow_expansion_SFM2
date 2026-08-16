@@ -562,8 +562,18 @@ def expansion_update(
     round_index: int,
     optimizer: torch.optim.Adam | None = None,
     context_provider=None,
+    snapshot_callback=None,
+    snapshot_every: int = 0,
 ) -> dict:
     """One declared update round: E complete reshuffled passes over D+.
+
+    ``snapshot_callback(step, model_state_metrics)`` is an observation-only
+    hook invoked after every ``snapshot_every``-th optimizer step (0/None
+    disables it, keeping behavior byte-identical).  The metrics dict carries
+    the step index, the running positive-loss mean, and the current relative
+    drift, all computed from detached tensors; the callback must not disturb
+    RNG or optimizer state (saving detached state-dict copies is fine), so a
+    run with snapshots ends bitwise identical to one without.
 
     When ``optimizer`` is provided it must already hold exactly the declared
     trainable parameters; its momentum state then persists across rounds so a
@@ -819,6 +829,23 @@ def expansion_update(
                 ):
                     abort_reason = "negative_loss_divergence"
                     break
+            if (
+                snapshot_callback is not None
+                and int(snapshot_every) > 0
+                and steps % int(snapshot_every) == 0
+            ):
+                # Observation-only: metrics come from detached tensors and no
+                # RNG is consumed here, so snapshotting cannot perturb the
+                # training trajectory.
+                snapshot_callback(int(steps), {
+                    "step": int(steps),
+                    "positive_loss_running_mean": float(
+                        np.mean(positive_losses)
+                    ),
+                    "relative_parameter_drift": float(
+                        HYBRID._relative_parameter_drift(parameters, before)
+                    ),
+                })
         per_pass_positive_loss.append(
             float(np.mean(pass_losses)) if pass_losses else None
         )

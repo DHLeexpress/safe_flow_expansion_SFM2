@@ -288,3 +288,107 @@ def test_lru_shard_cache(tmp_path):
         assert torch.equal(
             record["token"], row["context"][:RAW.TOKEN_DIM],
         )
+
+
+def _strict_checkpoint(adapter, path):
+    payload = UPD.checkpoint_payload(
+        adapter,
+        parent_checkpoint_sha256="0" * 64,
+        pretrained_checkpoint_sha256="0" * 64,
+        round_index=0,
+        alpha=0.0,
+    )
+    torch.save(payload, path)
+    import sfm_hp100_predictive_execution as PRED
+
+    return PRED.sha256_file(path)
+
+
+def test_snapshots_land_at_cadence_with_strict_payloads(tmp_path):
+    import json
+
+    import sfm_hp100_raw_train as RT
+
+    adapter = _adapter(seed=11)
+    rows = _capture(adapter, tmp_path / "raw", 6, hp_dtype=torch.float32)
+    torch.save({"rows": rows}, tmp_path / "archive.pt")
+    sha = _strict_checkpoint(adapter, tmp_path / "r0.pt")
+    output = tmp_path / "out"
+    marker = RT.run(RT.parser().parse_args([
+        "--checkpoint", str(tmp_path / "r0.pt"),
+        "--expected-checkpoint-sha256", sha,
+        "--output", str(output),
+        "--archive", str(tmp_path / "archive.pt"),
+        "--raw-manifest", str(tmp_path / "raw"),
+        "--batch-size", "4", "--learning-rate", "1e-5",
+        "--snapshot-every", "1",
+        "--device", "cpu", "--physical-gpu", "-1",
+    ]))
+    # 6 rows, batch 4, one pass -> 2 optimizer steps -> snapshots at 1 and 2.
+    assert marker["snapshot_every"] == 1
+    assert [record["step"] for record in marker["snapshots"]] == [1, 2]
+    for record in marker["snapshots"]:
+        payload = torch.load(
+            record["path"], map_location="cpu", weights_only=False,
+        )
+        assert set(payload) >= {"state_dict", "config", "snapshot"}
+        assert payload["snapshot"]["step"] == record["step"]
+        assert record["positive_loss_running_mean"] is not None
+        assert record["drift"] >= 0.0
+        assert len(record["sha256"]) == 64
+        # Strict raw-evaluable schema: the frozen loader accepts it.
+        GPS.load_sfm_hp100_policy(record["path"], device="cpu")
+    listed = json.loads((output / "RAW_TRAIN_COMPLETE.json").read_text())
+    assert [row["step"] for row in listed["snapshots"]] == [1, 2]
+    # Off by default: a second run without the flag reports None.
+    marker_off = RT.run(RT.parser().parse_args([
+        "--checkpoint", str(tmp_path / "r0.pt"),
+        "--expected-checkpoint-sha256", sha,
+        "--output", str(tmp_path / "out_off"),
+        "--archive", str(tmp_path / "archive.pt"),
+        "--raw-manifest", str(tmp_path / "raw"),
+        "--batch-size", "4", "--learning-rate", "1e-5",
+        "--device", "cpu", "--physical-gpu", "-1",
+    ]))
+    assert marker_off["snapshots"] is None
+    assert marker_off["snapshot_every"] is None
+
+
+def test_snapshotting_leaves_training_bitwise_identical(tmp_path):
+    rows = _capture(_adapter(seed=12), tmp_path / "raw", 6)
+    config = UPD.UpdateConfig(learning_rate=1.0e-3, batch_size=4)
+
+    plain = _adapter(seed=12)
+    UPD.expansion_update(
+        plain, copy.deepcopy(rows), [], config, round_index=1,
+    )
+
+    observed = _adapter(seed=12)
+    saved = []
+
+    def callback(step, metrics):
+        payload = UPD.checkpoint_payload(
+            observed,
+            parent_checkpoint_sha256="0" * 64,
+            pretrained_checkpoint_sha256="0" * 64,
+            round_index=1,
+            alpha=0.0,
+        )
+        payload["snapshot"] = dict(metrics)
+        path = tmp_path / f"snapshot_step{step:05d}.pt"
+        torch.save(payload, path)
+        saved.append((step, metrics["relative_parameter_drift"]))
+
+    UPD.expansion_update(
+        observed, copy.deepcopy(rows), [], config, round_index=1,
+        snapshot_callback=callback, snapshot_every=1,
+    )
+    assert [step for step, _ in saved] == [1, 2]
+    assert all(drift >= 0.0 for _, drift in saved)
+    # The observation-only hook must not perturb the trajectory: final
+    # parameters agree bitwise with the snapshot-free run.
+    for (name_a, a), (name_b, b) in zip(
+        plain.named_parameters(), observed.named_parameters(),
+    ):
+        assert name_a == name_b
+        assert torch.equal(a, b), name_a

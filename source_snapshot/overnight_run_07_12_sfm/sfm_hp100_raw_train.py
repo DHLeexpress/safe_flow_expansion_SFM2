@@ -18,6 +18,11 @@ Outputs, under a fresh ``--output`` directory: ``checkpoint_r1.pt`` (strict
 raw-evaluable schema, written only when the update is accepted) and
 ``RAW_TRAIN_COMPLETE.json`` with the full audit, the token re-encode audit,
 and the grid_projection drift reported separately from the trunk/head drift.
+With ``--snapshot-every N``, a strict raw-evaluable
+``snapshot_step{step:05d}.pt`` is additionally saved every N optimizer steps
+(guard-free — only the final checkpoint decides accept/revert), giving one
+run a screenable learning-amount curve; the marker lists every snapshot with
+its running positive loss and drift.
 """
 from __future__ import annotations
 
@@ -175,9 +180,46 @@ def run(args) -> dict:
         for key, parameters in groups.items() if parameters
     }
 
+    snapshot_every = int(getattr(args, "snapshot_every", 0) or 0)
+    snapshot_records: list[dict] = []
+    snapshot_callback = None
+    if snapshot_every > 0:
+        # Snapshots stream out during training, so the output directory must
+        # exist early (the fresh-output refusal above already ran).
+        output.mkdir(parents=True)
+
+        def snapshot_callback(step: int, model_state_metrics: dict) -> None:
+            # Same strict payload builder as the final checkpoint; snapshots
+            # never run the accept/revert guards — they record the current
+            # drift so the learning-amount curve can be screened later.
+            payload = UPD.checkpoint_payload(
+                adapter,
+                parent_checkpoint_sha256=r0_sha,
+                pretrained_checkpoint_sha256=r0_sha,
+                round_index=1,
+                alpha=config.alpha,
+                exposure_passes=config.exposure_passes,
+                optimizer_scope=config.optimizer_scope,
+            )
+            payload["snapshot"] = dict(model_state_metrics)
+            path = output / f"snapshot_step{int(step):05d}.pt"
+            torch.save(payload, path)
+            snapshot_records.append({
+                "step": int(step),
+                "path": str(path),
+                "sha256": PRED.sha256_file(path),
+                "positive_loss_running_mean": model_state_metrics.get(
+                    "positive_loss_running_mean"
+                ),
+                "drift": model_state_metrics.get(
+                    "relative_parameter_drift"
+                ),
+            })
+
     metrics = UPD.expansion_update(
         adapter, positives, negatives, config,
         round_index=1, context_provider=provider,
+        snapshot_callback=snapshot_callback, snapshot_every=snapshot_every,
     )
     drift_by_group = {
         key: float(HYBRID._relative_parameter_drift(
@@ -186,7 +228,7 @@ def run(args) -> dict:
         for key in snapshots
     }
 
-    output.mkdir(parents=True)
+    output.mkdir(parents=True, exist_ok=True)
     checkpoint = None
     if metrics["accepted"]:
         payload = UPD.checkpoint_payload(
@@ -231,6 +273,10 @@ def run(args) -> dict:
         "update": metrics,
         "relative_drift_by_group": drift_by_group,
         "checkpoint": checkpoint,
+        # Mid-training learning-amount curve: one strict raw-evaluable
+        # checkpoint every --snapshot-every optimizer steps (None when off).
+        "snapshot_every": (snapshot_every if snapshot_every > 0 else None),
+        "snapshots": (snapshot_records if snapshot_every > 0 else None),
     }
     PRED._write_json(output / "RAW_TRAIN_COMPLETE.json", marker)
     return marker
@@ -273,6 +319,7 @@ def parser() -> argparse.ArgumentParser:
         "--max-relative-parameter-drift", type=float, default=0.25,
     )
     value.add_argument("--train-mode", choices=("eval", "train"), default="eval")
+    value.add_argument("--snapshot-every", type=int, default=0)
     value.add_argument("--update-seed", type=int, default=2)
     value.add_argument("--device", default="cuda:0")
     value.add_argument("--physical-gpu", type=int, required=True)
