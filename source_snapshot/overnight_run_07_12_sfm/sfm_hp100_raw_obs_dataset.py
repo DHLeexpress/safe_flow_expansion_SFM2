@@ -178,11 +178,14 @@ def audit_tokens(
 ) -> dict:
     """Recompute tokens from raw (no grad) and compare to the stored tokens."""
     raw = dataset.batch(rows)
+    device = next(adapter.policy.parameters()).device
     with torch.no_grad():
         redone = token_from_raw(
-            adapter.policy, raw["grid"], raw["low5"], raw["history"],
+            adapter.policy,
+            raw["grid"].to(device), raw["low5"].to(device),
+            raw["history"].to(device),
         )
-    deviation = float((redone - raw["token"]).abs().max())
+    deviation = float((redone - raw["token"].to(device)).abs().max())
     return {
         "rows": len(rows),
         "max_abs_deviation": deviation,
