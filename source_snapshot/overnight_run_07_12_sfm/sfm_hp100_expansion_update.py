@@ -92,6 +92,24 @@ DECLARED_TRAINABLE_SURFACES = {
         MINIMAL_TRAINABLE_NAMES, MINIMAL_TRAINABLE_PARAMETER_COUNT,
     ),
 }
+# Declared widened surface for the raw-observation phase: the full
+# trunk_and_head set plus the visual projection (the 1.6M-parameter linear
+# after the frozen conv/pool).  Training it requires raw encoder inputs —
+# archived 176-tokens carry no gradient path into any encoder — so this scope
+# is only reachable through the raw-forward context provider below.
+# grid_conv, angular_pool, enc_low, gru, and noise templates stay bitwise
+# frozen; grid_projection leaves the frozen digest set for this scope.
+PROJECTION_OPTIMIZER_SCOPE = "trunk_head_and_projection"
+PROJECTION_TRAINABLE_PARAMETER_COUNT = 1_966_484
+PROJECTION_TRAINABLE_NAMES = tuple(sorted(
+    FROZEN_TRAINABLE_NAMES + (
+        "policy.grid_projection.1.bias",
+        "policy.grid_projection.1.weight",
+    )
+))
+DECLARED_TRAINABLE_SURFACES[PROJECTION_OPTIMIZER_SCOPE] = (
+    PROJECTION_TRAINABLE_NAMES, PROJECTION_TRAINABLE_PARAMETER_COUNT,
+)
 # Trunk state each narrowed scope excludes from training and must therefore
 # leave bitwise untouched, digested under its own key.
 _EXCLUDED_TRUNK_PREFIXES = {
@@ -221,7 +239,17 @@ def configure_trainable(
     if scope not in DECLARED_TRAINABLE_SURFACES:
         raise ValueError(f"undeclared optimizer scope: {scope!r}")
     declared_names, declared_count = DECLARED_TRAINABLE_SURFACES[scope]
-    parameters = adapter.expansion_optimizer_parameters(scope)
+    if scope == PROJECTION_OPTIMIZER_SCOPE:
+        # The frozen adapter only knows the three trunk-side scopes; the
+        # projection scope is trunk_and_head plus grid_projection, enabled
+        # here without editing the frozen file.
+        parameters = adapter.expansion_optimizer_parameters(OPTIMIZER_SCOPE)
+        projection = list(adapter.policy.grid_projection.parameters())
+        for parameter in projection:
+            parameter.requires_grad_(True)
+        parameters = parameters + projection
+    else:
+        parameters = adapter.expansion_optimizer_parameters(scope)
     names = sorted(
         name for name, parameter in adapter.named_parameters()
         if parameter.requires_grad
@@ -238,14 +266,24 @@ def configure_trainable(
     return parameters, names
 
 
-def encoder_state_sha256(adapter: PORT.HP100ExpansionPolicy) -> dict:
-    """Bitwise digest of every frozen condition-encoder state entry."""
+def encoder_state_sha256(
+    adapter: PORT.HP100ExpansionPolicy,
+    exclude_modules: tuple[str, ...] = (),
+) -> dict:
+    """Bitwise digest of every frozen condition-encoder state entry.
+
+    ``exclude_modules`` drops top-level encoder modules that a widened scope
+    trains (the projection scope excludes ``grid_projection``); the default
+    empty tuple keeps the original digest byte-for-byte.
+    """
     grouped: dict[str, hashlib._hashlib.HASH] = {}
     combined = hashlib.sha256()
     for name, tensor in sorted(adapter.policy.state_dict().items()):
         if name.startswith("trunk.") or name.startswith("head."):
             continue
         module = name.split(".", 1)[0]
+        if module in exclude_modules:
+            continue
         value = tensor.detach().cpu().contiguous()
         for digest in (grouped.setdefault(module, hashlib.sha256()), combined):
             digest.update(name.encode())
@@ -269,10 +307,16 @@ def frozen_surface_sha256(
     Always covers every condition encoder; each trunk layer a narrowed scope
     excludes (``trunk.inp`` for the reduced scope, plus ``trunk.blocks.0``
     for the minimal scope) joins the asserted-frozen set under its own key.
+    The widened projection scope trains ``grid_projection``, so that module
+    leaves the frozen set; grid_conv, enc_low, gru, and the noise templates
+    stay pinned bitwise.
     """
     if scope not in DECLARED_TRAINABLE_SURFACES:
         raise ValueError(f"undeclared optimizer scope: {scope!r}")
-    digest = encoder_state_sha256(adapter)
+    digest = encoder_state_sha256(
+        adapter,
+        ("grid_projection",) if scope == PROJECTION_OPTIMIZER_SCOPE else (),
+    )
     for key, prefix in _EXCLUDED_TRUNK_PREFIXES.get(scope, ()):
         group = hashlib.sha256()
         seen = False
@@ -462,14 +506,35 @@ def expansion_update(
     *,
     round_index: int,
     optimizer: torch.optim.Adam | None = None,
+    context_provider=None,
 ) -> dict:
     """One declared update round: E complete reshuffled passes over D+.
 
     When ``optimizer`` is provided it must already hold exactly the declared
     trainable parameters; its momentum state then persists across rounds so a
     cumulative arm can be resumed bitwise from any saved round.
+
+    ``context_provider`` is the raw-forward path: a callable
+    ``(rows, device) -> contexts`` that recomputes each row's 176-token from
+    stored raw encoder inputs, with gradient flowing only through whatever
+    encoder surface the declared scope trains (``grid_projection`` under the
+    projection scope; nothing for the trunk-side scopes, making the provider
+    path loss-equivalent to the stored-token path there).  ``None`` keeps the
+    original stored-token stacking byte-for-byte.  Because archived tokens
+    carry no gradient path into any encoder, the projection scope refuses to
+    run without a provider rather than silently leaving the projection
+    untrained.
     """
     config.validate()
+    if (
+        config.optimizer_scope == PROJECTION_OPTIMIZER_SCOPE
+        and context_provider is None
+    ):
+        raise ValueError(
+            "the projection scope trains grid_projection and requires the "
+            "raw-forward context provider; stored tokens carry no gradient "
+            "path into any encoder"
+        )
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")
     _validate_roles(positives, negatives)
@@ -485,9 +550,27 @@ def expansion_update(
     before = HYBRID._parameter_snapshot(parameters)
     getattr(adapter, config.train_mode)()
 
-    negative_stack = None
+    def _batch_tensors(rows):
+        if context_provider is None:
+            return HYBRID._stack_rows(rows, device)
+        candidates = torch.stack([row["candidate"] for row in rows]).to(device)
+        return context_provider(rows, device), candidates
+
+    negative_tensors = None
     if negatives:
-        negative_stack = HYBRID._stack_rows(negatives, device)
+        if context_provider is None:
+            # Original path: stack once, reuse every step (bitwise unchanged).
+            prebuilt_negative_stack = HYBRID._stack_rows(negatives, device)
+
+            def negative_tensors():
+                return prebuilt_negative_stack
+        else:
+            # Raw-forward path: the provider graph is consumed by each step's
+            # backward, so the negative contexts are rebuilt per step (the
+            # full_set_mean semantics are unchanged — every step still sees
+            # the entire D- set).
+            def negative_tensors():
+                return _batch_tensors(negatives)
 
     if optimizer is None:
         optimizer = torch.optim.Adam(parameters, lr=config.learning_rate)
@@ -525,7 +608,7 @@ def expansion_update(
             range(0, len(ordered), config.batch_size)
         ):
             batch = ordered[start:start + config.batch_size]
-            contexts, candidates = HYBRID._stack_rows(batch, device)
+            contexts, candidates = _batch_tensors(batch)
             HYBRID._set_step_seed(_counter_seed(
                 config.seed, "sfm2_cfm_noise", int(round_index),
                 epoch, batch_index,
@@ -546,10 +629,10 @@ def expansion_update(
                 positive_loss = (batch_weights * positive_per_sample).sum()
             negative_loss_value = None
             negative_term_value = None
-            if negative_stack is not None:
+            if negative_tensors is not None:
                 if config.alpha > 0.0:
                     negative_per_sample = adapter.cfm_loss(
-                        *negative_stack, reduction="none",
+                        *negative_tensors(), reduction="none",
                     )
                     negative_loss = negative_per_sample.mean()
                     negative_loss_value = float(negative_loss.detach())
@@ -623,7 +706,7 @@ def expansion_update(
                     # so both arms consume identical CFM noise draws.
                     with torch.no_grad():
                         negative_loss_value = float(adapter.cfm_loss(
-                            *negative_stack, reduction="none",
+                            *negative_tensors(), reduction="none",
                         ).mean())
                     optimizer.zero_grad()
                     positive_loss.backward()
@@ -792,6 +875,11 @@ def expansion_update(
         "encoder_state_sha256_before": encoder_before,
         "encoder_state_sha256_after": encoder_after,
         "negative_mass": config.negative_mass,
+        # Whether contexts came from the archived tokens or were recomputed
+        # from raw encoder inputs through the (partially trainable) encoders.
+        "context_path": (
+            "stored_token" if context_provider is None else "raw_forward"
+        ),
         # Declared D+ mass mode with its effective per-gamma objective mass
         # and the fixed global weight vector's statistics.  For the weighted
         # modes each per-step positive term is a partial mass of this fixed
