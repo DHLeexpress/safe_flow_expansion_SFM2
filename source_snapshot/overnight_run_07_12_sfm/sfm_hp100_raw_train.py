@@ -82,6 +82,14 @@ def _per_gamma_counts(rows) -> dict:
 
 
 def run(args) -> dict:
+    if (
+        str(args.optimizer_scope) == UPD.ALL_OPEN_OPTIMIZER_SCOPE
+        and str(args.context_path) != "raw"
+    ):
+        raise ValueError(
+            "--optimizer-scope all_open requires --context-path raw: stored "
+            "tokens carry no gradient path into any encoder"
+        )
     output = Path(args.output).resolve()
     if output.exists():
         raise FileExistsError(f"refusing existing raw-train output: {output}")
@@ -136,21 +144,31 @@ def run(args) -> dict:
                 "raw-obs token audit failed: max deviation "
                 f"{token_audit['max_abs_deviation']} > atol {token_audit['atol']}"
             )
-        provider = RDS.make_context_provider(dataset, adapter)
+        provider = RDS.make_context_provider(
+            dataset, adapter,
+            open_encoders=(
+                str(args.optimizer_scope) == UPD.ALL_OPEN_OPTIMIZER_SCOPE
+            ),
+        )
 
     # Per-group drift: the projection surface is audited separately from the
-    # trunk/head surface (both restored together on reject).
+    # trunk/head surface, and the deep encoders (all_open only) separately
+    # again (all restored together on reject).
     UPD.configure_trainable(adapter, config.optimizer_scope)
     groups: dict[str, list[torch.nn.Parameter]] = {
-        "trunk_head": [], "grid_projection": [],
+        "trunk_head": [], "grid_projection": [], "encoders": [],
     }
     for name, parameter in adapter.named_parameters():
         if not parameter.requires_grad:
             continue
-        key = (
-            "grid_projection" if name.startswith("policy.grid_projection.")
-            else "trunk_head"
-        )
+        if name.startswith("policy.grid_projection."):
+            key = "grid_projection"
+        elif name.startswith(
+            ("policy.grid_conv.", "policy.enc_low.", "policy.gru.")
+        ):
+            key = "encoders"
+        else:
+            key = "trunk_head"
         groups[key].append(parameter)
     snapshots = {
         key: HYBRID._parameter_snapshot(parameters)

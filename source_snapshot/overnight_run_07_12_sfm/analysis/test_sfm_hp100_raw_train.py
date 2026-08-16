@@ -175,6 +175,108 @@ def test_dataset_join_fails_closed(tmp_path):
         dataset.fetch(("0.3", 12345, 0))
 
 
+def test_all_open_scope_surface_and_frozen_digest():
+    adapter = _adapter()
+    parameters, names = UPD.configure_trainable(
+        adapter, UPD.ALL_OPEN_OPTIMIZER_SCOPE,
+    )
+    assert tuple(names) == UPD.ALL_OPEN_TRAINABLE_NAMES
+    assert len(names) == 30
+    assert sum(parameter.numel() for parameter in parameters) == 1_978_068
+    # Every named parameter is trainable; noise_templates is a buffer and
+    # never enters the surface.
+    assert set(names) == set(dict(adapter.named_parameters()))
+    assert "noise_templates" in dict(adapter.policy.named_buffers())
+    digest = UPD.frozen_surface_sha256(adapter, UPD.ALL_OPEN_OPTIMIZER_SCOPE)
+    assert set(digest) == {"noise_templates", "combined"}
+
+
+def test_all_open_update_moves_everything_but_noise_templates(tmp_path):
+    adapter = _adapter()
+    rows = _capture(adapter, tmp_path / "raw", 6)
+    dataset = RDS.RawObsDataset(tmp_path / "raw")
+    provider = RDS.make_context_provider(dataset, adapter, open_encoders=True)
+    assert provider.open_encoders is True
+    before = {
+        "conv": adapter.policy.grid_conv[0].weight.detach().clone(),
+        "enc_low": adapter.policy.enc_low[0].weight.detach().clone(),
+        "gru": adapter.policy.gru.weight_ih_l0.detach().clone(),
+        "projection": adapter.policy.grid_projection[1].weight.detach().clone(),
+        "trunk": adapter.policy.trunk.inp[0].weight.detach().clone(),
+        "head": adapter.policy.head.weight.detach().clone(),
+    }
+    templates_before = adapter.policy.noise_templates.detach().clone()
+    metrics = UPD.expansion_update(
+        adapter, copy.deepcopy(rows), [],
+        UPD.UpdateConfig(
+            learning_rate=1.0e-3, batch_size=4,
+            optimizer_scope=UPD.ALL_OPEN_OPTIMIZER_SCOPE,
+        ),
+        round_index=1, context_provider=provider,
+    )
+    assert metrics["accepted"] and metrics["context_path"] == "raw_forward"
+    after = {
+        "conv": adapter.policy.grid_conv[0].weight,
+        "enc_low": adapter.policy.enc_low[0].weight,
+        "gru": adapter.policy.gru.weight_ih_l0,
+        "projection": adapter.policy.grid_projection[1].weight,
+        "trunk": adapter.policy.trunk.inp[0].weight,
+        "head": adapter.policy.head.weight,
+    }
+    for key, tensor in after.items():
+        assert not torch.equal(tensor, before[key]), key
+    assert torch.equal(adapter.policy.noise_templates, templates_before)
+
+
+def test_open_encoders_false_is_value_identical_and_gates_gradients(tmp_path):
+    adapter = _adapter()
+    grid, low5, history = _raw_inputs(7)
+    closed = RDS.token_from_raw(adapter.policy, grid, low5, history)
+    opened = RDS.token_from_raw(
+        adapter.policy, grid, low5, history, open_encoders=True,
+    )
+    # Same ops in the same order: forward values are identical (CPU path).
+    assert torch.equal(closed.detach(), opened.detach())
+    # Gradient reaches grid_conv only through the open path.
+    UPD.configure_trainable(adapter, UPD.ALL_OPEN_OPTIMIZER_SCOPE)
+    adapter.policy.zero_grad(set_to_none=True)
+    closed.sum().backward()
+    assert adapter.policy.grid_conv[0].weight.grad is None
+    adapter.policy.zero_grad(set_to_none=True)
+    opened2 = RDS.token_from_raw(
+        adapter.policy, grid, low5, history, open_encoders=True,
+    )
+    opened2.sum().backward()
+    assert adapter.policy.grid_conv[0].weight.grad is not None
+    assert adapter.policy.gru.weight_ih_l0.grad is not None
+
+
+def test_runner_refuses_all_open_with_stored_tokens():
+    import types
+
+    import sfm_hp100_raw_train as RT
+
+    with pytest.raises(ValueError, match="all_open requires --context-path raw"):
+        RT.run(types.SimpleNamespace(
+            optimizer_scope=UPD.ALL_OPEN_OPTIMIZER_SCOPE,
+            context_path="stored",
+        ))
+
+
+def test_all_open_refuses_closed_provider(tmp_path):
+    adapter = _adapter()
+    rows = _capture(adapter, tmp_path / "raw", 2)
+    dataset = RDS.RawObsDataset(tmp_path / "raw")
+    closed_provider = RDS.make_context_provider(dataset, adapter)
+    assert closed_provider.open_encoders is False
+    with pytest.raises(ValueError, match="open_encoders=True"):
+        UPD.expansion_update(
+            adapter, copy.deepcopy(rows), [],
+            UPD.UpdateConfig(optimizer_scope=UPD.ALL_OPEN_OPTIMIZER_SCOPE),
+            round_index=1, context_provider=closed_provider,
+        )
+
+
 def test_lru_shard_cache(tmp_path):
     adapter = _adapter()
     rows = _capture(adapter, tmp_path / "raw", 7)  # flush_every=3 -> 3 shards

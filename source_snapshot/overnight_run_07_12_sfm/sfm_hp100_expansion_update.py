@@ -110,6 +110,41 @@ PROJECTION_TRAINABLE_NAMES = tuple(sorted(
 DECLARED_TRAINABLE_SURFACES[PROJECTION_OPTIMIZER_SCOPE] = (
     PROJECTION_TRAINABLE_NAMES, PROJECTION_TRAINABLE_PARAMETER_COUNT,
 )
+# Declared fully-open surface for the raw-observation phase: every policy
+# Parameter — trunk_and_head + grid_projection + grid_conv + enc_low + gru
+# (30 tensors).  ``noise_templates`` is a registered buffer, not a Parameter,
+# so it can never receive gradients; it must stay bitwise fixed regardless,
+# because the raw evaluator's CRN sampling semantics depend on the stored
+# templates — the frozen digest for this scope pins exactly that buffer and
+# nothing else.  Like the projection scope, this surface is reachable only
+# through the raw-forward context provider (with ``open_encoders=True``):
+# archived 176-tokens carry no gradient path into any encoder.
+ALL_OPEN_OPTIMIZER_SCOPE = "all_open"
+ALL_OPEN_TRAINABLE_PARAMETER_COUNT = 1_978_068
+ALL_OPEN_TRAINABLE_NAMES = tuple(sorted(
+    PROJECTION_TRAINABLE_NAMES + (
+        "policy.enc_low.0.bias",
+        "policy.enc_low.0.weight",
+        "policy.enc_low.2.bias",
+        "policy.enc_low.2.weight",
+        "policy.grid_conv.0.bias",
+        "policy.grid_conv.0.weight",
+        "policy.grid_conv.2.bias",
+        "policy.grid_conv.2.weight",
+        "policy.gru.bias_hh_l0",
+        "policy.gru.bias_ih_l0",
+        "policy.gru.weight_hh_l0",
+        "policy.gru.weight_ih_l0",
+    )
+))
+DECLARED_TRAINABLE_SURFACES[ALL_OPEN_OPTIMIZER_SCOPE] = (
+    ALL_OPEN_TRAINABLE_NAMES, ALL_OPEN_TRAINABLE_PARAMETER_COUNT,
+)
+# Scopes that train encoder-side modules and therefore refuse to run without
+# the raw-forward context provider.
+_PROVIDER_REQUIRED_SCOPES = frozenset(
+    {PROJECTION_OPTIMIZER_SCOPE, ALL_OPEN_OPTIMIZER_SCOPE}
+)
 # Trunk state each narrowed scope excludes from training and must therefore
 # leave bitwise untouched, digested under its own key.
 _EXCLUDED_TRUNK_PREFIXES = {
@@ -248,6 +283,21 @@ def configure_trainable(
         for parameter in projection:
             parameter.requires_grad_(True)
         parameters = parameters + projection
+    elif scope == ALL_OPEN_OPTIMIZER_SCOPE:
+        # Fully open: trunk_and_head via the frozen adapter (which also
+        # resets every requires_grad flag first), then every encoder module
+        # enabled explicitly.  noise_templates is a buffer and never appears
+        # in named_parameters, so it stays out of the surface by construction.
+        parameters = adapter.expansion_optimizer_parameters(OPTIMIZER_SCOPE)
+        opened = []
+        for module in (
+            adapter.policy.grid_projection, adapter.policy.grid_conv,
+            adapter.policy.enc_low, adapter.policy.gru,
+        ):
+            for parameter in module.parameters():
+                parameter.requires_grad_(True)
+                opened.append(parameter)
+        parameters = parameters + opened
     else:
         parameters = adapter.expansion_optimizer_parameters(scope)
     names = sorted(
@@ -309,14 +359,19 @@ def frozen_surface_sha256(
     for the minimal scope) joins the asserted-frozen set under its own key.
     The widened projection scope trains ``grid_projection``, so that module
     leaves the frozen set; grid_conv, enc_low, gru, and the noise templates
-    stay pinned bitwise.
+    stay pinned bitwise.  The fully-open scope trains every encoder module,
+    so its frozen digest pins only the ``noise_templates`` buffer (fixed CRN
+    sampling semantics for the raw evaluator).
     """
     if scope not in DECLARED_TRAINABLE_SURFACES:
         raise ValueError(f"undeclared optimizer scope: {scope!r}")
-    digest = encoder_state_sha256(
-        adapter,
-        ("grid_projection",) if scope == PROJECTION_OPTIMIZER_SCOPE else (),
-    )
+    if scope == ALL_OPEN_OPTIMIZER_SCOPE:
+        excluded_modules = ("grid_projection", "grid_conv", "enc_low", "gru")
+    elif scope == PROJECTION_OPTIMIZER_SCOPE:
+        excluded_modules = ("grid_projection",)
+    else:
+        excluded_modules = ()
+    digest = encoder_state_sha256(adapter, excluded_modules)
     for key, prefix in _EXCLUDED_TRUNK_PREFIXES.get(scope, ()):
         group = hashlib.sha256()
         seen = False
@@ -527,13 +582,22 @@ def expansion_update(
     """
     config.validate()
     if (
-        config.optimizer_scope == PROJECTION_OPTIMIZER_SCOPE
+        config.optimizer_scope in _PROVIDER_REQUIRED_SCOPES
         and context_provider is None
     ):
         raise ValueError(
-            "the projection scope trains grid_projection and requires the "
-            "raw-forward context provider; stored tokens carry no gradient "
-            "path into any encoder"
+            f"the {config.optimizer_scope} scope trains encoder-side modules "
+            "and requires the raw-forward context provider; stored tokens "
+            "carry no gradient path into any encoder"
+        )
+    if (
+        config.optimizer_scope == ALL_OPEN_OPTIMIZER_SCOPE
+        and not getattr(context_provider, "open_encoders", False)
+    ):
+        raise ValueError(
+            "the all_open scope requires a provider built with "
+            "open_encoders=True; a closed provider would silently leave "
+            "grid_conv, enc_low, and the GRU untrained"
         )
     if not positives:
         raise ValueError("expansion update requires at least one D+ row")

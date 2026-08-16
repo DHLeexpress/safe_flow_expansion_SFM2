@@ -134,20 +134,37 @@ class RawObsDataset:
 
 def token_from_raw(
     policy, grid: torch.Tensor, low5: torch.Tensor, history: torch.Tensor,
+    *, open_encoders: bool = False,
 ) -> torch.Tensor:
-    """Recompute the 176-token with gradient only through grid_projection.
+    """Recompute the 176-token from raw encoder inputs.
 
-    Mirrors the frozen ``ctx_from`` exactly: GRU + low encoder and the conv/
-    pool visual features run under ``no_grad`` (they are frozen in every
-    declared scope), the pooled features are detached, and only the
+    Mirrors the frozen ``ctx_from`` exactly.  With the default
+    ``open_encoders=False``, GRU + low encoder and the conv/pool visual
+    features run under ``no_grad`` (they are frozen in every trunk-side
+    scope), the pooled features are detached, and only the
     ``grid_projection`` call participates in autograd — its output requires
-    grad exactly when the projection parameters do, so the same code path
-    serves every scope.
+    grad exactly when the projection parameters do.  With
+    ``open_encoders=True`` (the ``all_open`` scope) the whole encoder stack
+    runs inside autograd with no detach, so gradients reach grid_conv,
+    enc_low, and the GRU as well.  Both branches execute the same ops in the
+    same order, so the forward values are identical.
     """
     grid, low5, history = policy._batched_inputs(
         grid.to(torch.float32), low5.to(torch.float32),
         history.to(torch.float32),
     )
+    if open_encoders:
+        # cuDNN's RNN backward is only implemented for train-mode modules;
+        # the declared update trains in eval mode, so the GRU runs with cuDNN
+        # disabled here (native kernels, backward-capable in eval; forward
+        # values agree with cuDNN at kernel-accumulation order ~1e-7).
+        with torch.backends.cudnn.flags(enabled=False):
+            _, hidden = policy.gru(history)
+        raw_low = torch.cat([low5[:, :4], hidden[-1], low5[:, 4:5]], dim=1)
+        low_token = policy.enc_low(raw_low)
+        features = policy.angular_pool(policy.grid_conv(grid))
+        visual_token = policy.grid_projection(features)
+        return torch.cat([low_token, visual_token], dim=1)
     with torch.no_grad():
         _, hidden = policy.gru(history)
         raw_low = torch.cat([low5[:, :4], hidden[-1], low5[:, 4:5]], dim=1)
@@ -157,8 +174,14 @@ def token_from_raw(
     return torch.cat([low_token, visual_token], dim=1)
 
 
-def make_context_provider(dataset: RawObsDataset, adapter):
-    """``expansion_update`` context provider over this dataset."""
+def make_context_provider(
+    dataset: RawObsDataset, adapter, *, open_encoders: bool = False,
+):
+    """``expansion_update`` context provider over this dataset.
+
+    The returned callable carries its ``open_encoders`` flag as an attribute
+    so scope wiring can be verified fail-closed by the consumer.
+    """
     if not isinstance(adapter, PORT.HP100ExpansionPolicy):
         raise TypeError("raw context provider requires the HP100 adapter")
 
@@ -168,8 +191,10 @@ def make_context_provider(dataset: RawObsDataset, adapter):
             adapter.policy,
             raw["grid"].to(device), raw["low5"].to(device),
             raw["history"].to(device),
+            open_encoders=open_encoders,
         )
 
+    provider.open_encoders = bool(open_encoders)
     return provider
 
 
