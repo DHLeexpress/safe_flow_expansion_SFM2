@@ -12,6 +12,14 @@ the negative term over the entire D- set, so D- carries total objective mass
 exactly ``alpha`` regardless of its cardinality and no rare negative silently
 receives arbitrary mass through oversampling.
 
+``negative_mode="hinge"`` is the declared bounded variant of that negative
+term: it becomes ``+ alpha * mean(relu(negative_margin - L_CFM(D-)))`` over
+the same full D- set, so each negative's likelihood is pushed down only until
+its CFM loss reaches the margin, where its gradient vanishes.  The unbounded
+literal term rewards diverging on D- without limit (observed at mega-scale:
+D- CFM loss 0.6 -> ~11 within one round, tripping the 10x divergence guard);
+the hinge cannot, though the guard stays armed in both modes.
+
 The default trainable surface is the complete flow trunk plus head
 (``trunk.inp + blocks[0] + blocks[1] + head``); the declared reduced arm
 (``last_two_blocks_and_head``) leaves ``trunk.inp`` frozen as well, and the
@@ -126,6 +134,17 @@ class UpdateConfig:
     # exposure is E-fold by design and is audited truthfully below.
     exposure_passes: int = 1
     negative_mass: str = "full_set_mean"
+    # Declared negative-term mode.  "literal" is the exact declared objective
+    # L = mean(L+) - alpha*mean(L-), kept bit-for-bit; "hinge" replaces the
+    # negative term with + alpha * mean(relu(negative_margin - L_CFM(D-))):
+    # a bounded push that reduces each D- sample's likelihood only until its
+    # CFM loss reaches the margin, where its gradient vanishes, so the term
+    # cannot diverge the way the unbounded literal term can at scale.  The
+    # 10x negative-loss divergence guard stays armed in both modes.
+    negative_mode: str = "literal"
+    # hinge only: the per-sample CFM-loss level beyond which a D- row stops
+    # contributing gradient.  Ignored by literal.
+    negative_margin: float = 2.0
     grad_clip_norm: float = 1.0
     max_relative_parameter_drift: float = 0.25
     # Historical expansion modules trained the adapter in eval mode (dropout
@@ -169,6 +188,10 @@ class UpdateConfig:
             )
         if self.negative_mass != "full_set_mean":
             raise ValueError("only the declared full_set_mean negative mass is allowed")
+        if self.negative_mode not in {"literal", "hinge"}:
+            raise ValueError("negative_mode must be literal or hinge")
+        if self.negative_margin <= 0.0:
+            raise ValueError("negative_margin must be positive")
         if self.grad_clip_norm <= 0.0:
             raise ValueError("gradient clip norm must be positive")
         if not 0.0 < self.max_relative_parameter_drift < 1.0:
@@ -481,16 +504,18 @@ def expansion_update(
                 "the persistent optimizer does not hold the declared surface"
             )
     positive_losses, negative_losses, objectives = [], [], []
+    negative_hinge_values = []
     grad_pre_clip, grad_post_clip = [], []
     positive_grad_norms, negative_grad_norms, grad_cosines = [], [], []
     per_pass_positive_loss, per_pass_grad_norm = [], []
+    per_pass_beyond_margin = []
     clipped_steps = 0
     steps = 0
     initial_negative_loss = None
     abort_reason = None
 
     for epoch in range(config.exposure_passes):
-        pass_losses, pass_norms = [], []
+        pass_losses, pass_norms, pass_beyond = [], [], []
         order = np.random.default_rng(_counter_seed(
             config.seed, "sfm2_Dplus_order", int(round_index), epoch,
         )).permutation(len(positives))
@@ -520,6 +545,7 @@ def expansion_update(
                 )
                 positive_loss = (batch_weights * positive_per_sample).sum()
             negative_loss_value = None
+            negative_term_value = None
             if negative_stack is not None:
                 if config.alpha > 0.0:
                     negative_per_sample = adapter.cfm_loss(
@@ -527,11 +553,32 @@ def expansion_update(
                     )
                     negative_loss = negative_per_sample.mean()
                     negative_loss_value = float(negative_loss.detach())
+                    if config.negative_mode == "hinge":
+                        # Bounded push: the objective ADDS
+                        # + alpha * mean(relu(margin - L-)) over the full D-
+                        # set (full_set_mean semantics unchanged), so a D-
+                        # sample whose CFM loss already sits at or beyond the
+                        # margin contributes exactly zero gradient.
+                        negative_term = torch.relu(
+                            config.negative_margin - negative_per_sample
+                        ).mean()
+                        term_sign = 1.0
+                        negative_term_value = float(negative_term.detach())
+                        pass_beyond.append(float(
+                            (
+                                negative_per_sample.detach()
+                                >= config.negative_margin
+                            ).float().mean()
+                        ))
+                    else:
+                        # Literal declared objective: - alpha * mean(L-).
+                        negative_term = negative_loss
+                        term_sign = -1.0
                     positive_grad = torch.autograd.grad(
                         positive_loss, parameters, allow_unused=True,
                     )
                     negative_grad = torch.autograd.grad(
-                        negative_loss, parameters, allow_unused=True,
+                        negative_term, parameters, allow_unused=True,
                     )
                     positive_norm = HYBRID._gradient_norm(positive_grad, device)
                     negative_norm = HYBRID._gradient_norm(negative_grad, device)
@@ -549,18 +596,26 @@ def expansion_update(
                         dot / (positive_norm * negative_norm + 1.0e-24)
                     ))
                     optimizer.zero_grad()
+                    # term_sign folds the mode into one combination rule:
+                    # literal is pos - alpha*grad(mean L-) exactly as before
+                    # (IEEE sign flips commute with multiply/add, so the
+                    # literal path stays bitwise), hinge is
+                    # pos + alpha*grad(mean relu(margin - L-)).
                     for parameter, pos, neg in zip(
                         parameters, positive_grad, negative_grad,
                     ):
                         if pos is None and neg is None:
                             parameter.grad = None
                         elif pos is None:
-                            parameter.grad = -config.alpha * neg.detach()
+                            parameter.grad = (
+                                term_sign * config.alpha * neg.detach()
+                            )
                         elif neg is None:
                             parameter.grad = pos.detach()
                         else:
                             parameter.grad = (
-                                pos.detach() - config.alpha * neg.detach()
+                                pos.detach()
+                                + term_sign * config.alpha * neg.detach()
                             )
                 else:
                     # alpha=0 control: the negative term contributes exactly
@@ -596,9 +651,19 @@ def expansion_update(
                 objectives.append(positive_loss_value)
             else:
                 negative_losses.append(negative_loss_value)
-                objectives.append(
-                    positive_loss_value - config.alpha * negative_loss_value
-                )
+                if negative_term_value is not None:
+                    # hinge with alpha > 0: the realized objective adds the
+                    # bounded term; negative_loss_value stays the raw mean
+                    # CFM loss on D- for the audit and divergence guard.
+                    negative_hinge_values.append(negative_term_value)
+                    objectives.append(
+                        positive_loss_value
+                        + config.alpha * negative_term_value
+                    )
+                else:
+                    objectives.append(
+                        positive_loss_value - config.alpha * negative_loss_value
+                    )
                 if initial_negative_loss is None:
                     initial_negative_loss = negative_loss_value
                 elif config.alpha > 0.0 and negative_loss_value > (
@@ -612,6 +677,9 @@ def expansion_update(
         )
         per_pass_grad_norm.append(
             float(np.mean(pass_norms)) if pass_norms else None
+        )
+        per_pass_beyond_margin.append(
+            float(np.mean(pass_beyond)) if pass_beyond else None
         )
         if abort_reason is not None:
             break
@@ -634,18 +702,29 @@ def expansion_update(
 
     positive_loss_mean = float(np.mean(positive_losses)) if positive_losses else None
     negative_loss_mean = float(np.mean(negative_losses)) if negative_losses else None
+    negative_hinge_mean = (
+        float(np.mean(negative_hinge_values)) if negative_hinge_values else None
+    )
     objective_mean = float(np.mean(objectives)) if objectives else None
-    if (
-        positive_loss_mean is not None
-        and negative_loss_mean is not None
-        and objective_mean is not None
-        and not math.isclose(
-            objective_mean,
-            positive_loss_mean - config.alpha * negative_loss_mean,
+    if positive_loss_mean is not None and objective_mean is not None:
+        if negative_hinge_mean is not None:
+            # hinge with alpha > 0.
+            expected_objective = (
+                positive_loss_mean + config.alpha * negative_hinge_mean
+            )
+        elif negative_loss_mean is not None:
+            expected_objective = (
+                positive_loss_mean - config.alpha * negative_loss_mean
+            )
+        else:
+            expected_objective = None
+        if expected_objective is not None and not math.isclose(
+            objective_mean, expected_objective,
             rel_tol=1.0e-9, abs_tol=1.0e-9,
-        )
-    ):
-        raise RuntimeError("objective violates positive-minus-alpha-negative identity")
+        ):
+            raise RuntimeError(
+                "objective violates positive-minus-alpha-negative identity"
+            )
     return {
         "version": VERSION,
         "config": asdict(config),
@@ -682,7 +761,16 @@ def expansion_update(
         "in_archive_duplicate_rows": _in_archive_duplicate_rows(positives)
         + _in_archive_duplicate_rows(negatives),
         "positive_loss_mean": positive_loss_mean,
+        # Raw mean CFM loss on D- in BOTH negative modes (the divergence
+        # guard's statistic); the hinge term itself is audited separately.
         "negative_loss_mean": negative_loss_mean,
+        "negative_mode": config.negative_mode,
+        "negative_margin": float(config.negative_margin),
+        "negative_hinge_mean": negative_hinge_mean,
+        # hinge only: per-pass fraction of D- rows whose CFM loss already
+        # sits at or beyond the margin (zero-gradient rows).  None entries
+        # mean the pass ran without an active hinge term.
+        "fraction_of_dminus_beyond_margin": per_pass_beyond_margin,
         "objective_mean": objective_mean,
         "grad_norm_pre_clip": grad_pre_clip,
         "grad_norm_post_clip": grad_post_clip,

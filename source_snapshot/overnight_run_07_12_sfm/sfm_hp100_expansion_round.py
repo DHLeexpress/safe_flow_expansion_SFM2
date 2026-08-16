@@ -548,6 +548,8 @@ def run_recipe(args) -> dict:
 
     update_config = UPD.UpdateConfig(
         alpha=float(args.alpha),
+        negative_mode=str(args.negative_mode),
+        negative_margin=float(args.negative_margin),
         learning_rate=float(args.learning_rate),
         batch_size=int(args.batch_size),
         exposure_passes=int(args.exposure_passes),
@@ -588,6 +590,10 @@ def run_recipe(args) -> dict:
         # Resume states written before the mode tree existed carry the
         # declared default avoidance split (inert outside mode_gamma_tree).
         saved_config.setdefault("avoid_mass", 0.65)
+        # Resume states written before the negative modes existed carried the
+        # literal declared objective (margin inert under literal).
+        saved_config.setdefault("negative_mode", "literal")
+        saved_config.setdefault("negative_margin", 2.0)
         if saved_config != asdict(update_config):
             raise RuntimeError(
                 "resume requires the identical declared update recipe"
@@ -1005,6 +1011,10 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--verifier-workers", type=int, default=32)
     value.add_argument("--rounds", type=int, default=5)
     value.add_argument("--alpha", type=float, default=0.0)
+    value.add_argument(
+        "--negative-mode", default="literal", choices=("literal", "hinge"),
+    )
+    value.add_argument("--negative-margin", type=float, default=2.0)
     value.add_argument("--learning-rate", type=float, default=1.0e-5)
     value.add_argument("--batch-size", type=int, default=64)
     value.add_argument("--exposure-passes", type=int, default=1)
