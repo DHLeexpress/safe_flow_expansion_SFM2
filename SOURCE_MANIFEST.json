@@ -528,6 +528,11 @@
       "sha256": "e77ecbd4bf80592e5e7439f0d3dcbd2e10437b009565c140a074cd03915cb1de"
     },
     {
+      "path": "scripts/mpc_expansion/mpc_collect_extended.py",
+      "bytes": 3026,
+      "sha256": "ea7bb7aaa3dfaec14afb75f5bd49abcdca005b695db9b497ed284806a85aed00"
+    },
+    {
       "path": "scripts/mpc_expansion/mpc_expansion_chain.sh",
       "bytes": 3296,
       "sha256": "2efc7bee01be84477243e8cdaaa004aff8b2510918169d008d55b71699f8292e"
@@ -536,6 +541,11 @@
       "path": "scripts/mpc_expansion/mpc_round_driver.py",
       "bytes": 2236,
       "sha256": "18415a4caa7fb3bd939286b4eadf52c9ebd460ad76ea763df9076f757fe5e81c"
+    },
+    {
+      "path": "scripts/mpc_expansion/plan_extended_collection.py",
+      "bytes": 3961,
+      "sha256": "bf6af1dd550c8c8a091298f44f987ed2d2de4ec95323a0cdab6f45a82402c1ba"
     },
     {
       "path": "scripts/run_expansion_archive.sh",
@@ -1463,6 +1473,11 @@
       "sha256": "a2335b6774b91ae4a7c3e2837fe4490d81709ba57b57e64eaaff8f87593370b1"
     },
     {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_raw_obs_capture.py",
+      "bytes": 5413,
+      "sha256": "3e4041d679466fea557d3feb1414398bca2b726adb83e347147d9dae9e7f9de9"
+    },
+    {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp_history.py",
       "bytes": 2247,
       "sha256": "419d187555cb0eccc484984436ff47c948b670123ea99c7408a04ed696fe0e9c"
@@ -1866,6 +1881,11 @@
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_preterminal_sweep.py",
       "bytes": 18766,
       "sha256": "201c2d7b6af62c05d149b8dedd8ded66e0ecf706a54b9501d0db2c065804e3c1"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_raw_obs_capture.py",
+      "bytes": 11686,
+      "sha256": "4b93d712b71409e8c73a26473e5ae9c489574f75c6f1bd7ca7a3a5e458b255ef"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp_history.py",
