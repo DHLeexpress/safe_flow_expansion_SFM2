@@ -529,8 +529,8 @@
     },
     {
       "path": "scripts/mpc_expansion/mpc_collect_extended.py",
-      "bytes": 3026,
-      "sha256": "ea7bb7aaa3dfaec14afb75f5bd49abcdca005b695db9b497ed284806a85aed00"
+      "bytes": 3411,
+      "sha256": "207bf440cbdd9cd6a39eee82675f8cca10c39cca632536881185802b853c346c"
     },
     {
       "path": "scripts/mpc_expansion/mpc_expansion_chain.sh",

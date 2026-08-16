@@ -36,14 +36,21 @@ VERIFY_EVERY = int(os.environ.get("RAW_OBS_VERIFY_EVERY", RAW.DEFAULT_VERIFY_EVE
 def _run() -> int:
     argv = sys.argv[1:]
     output = Path(argv[argv.index("--output") + 1])
+    # The shard writer must not create <output> before ARCH.run does — the
+    # archive runner refuses a pre-existing output directory. Stream shards
+    # into a sibling temp dir and move them in after the run.
+    raw_tmp = output.parent / f".{output.name}_raw_obs_tmp"
     shadow: list = []
     with V2.install_v2_selector(PARAMS, shadow):
         with RAW.install_raw_obs_capture(
-            output / "raw_obs",
+            raw_tmp,
             flush_every=FLUSH_EVERY, verify_every=VERIFY_EVERY,
         ) as recorder:
             code = ARCH.main(argv)
     output.mkdir(parents=True, exist_ok=True)
+    final_raw = output / "raw_obs"
+    if raw_tmp.exists() and not final_raw.exists():
+        raw_tmp.rename(final_raw)
     (output / "EXECUTION_RULE.json").write_text(json.dumps({
         "execution_rule": "predictive_mpc_v2",
         "authoritative": False,
