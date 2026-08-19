@@ -493,6 +493,11 @@
       "sha256": "0352117b15cc7086799abc42c77e80e1df17616eb2759b1105470e39527d6e8e"
     },
     {
+      "path": "provenance/rc3_champion_20260819/CHAMPION_LEDGER.md",
+      "bytes": 3045,
+      "sha256": "c70866ed628c4a9f5890ee211cf9f7844a2e564063b5a3142befe556075297e2"
+    },
+    {
       "path": "provenance/runtime_gate/RUNTIME_FORECAST.json",
       "bytes": 2196,
       "sha256": "30bd7ffe6856dfa8e3862d04e73b8975c0fe0ca4646656b12c86dfb92f803f6d"
