@@ -103,7 +103,8 @@ def harvest_trace(
     device: torch.device,
     replay_chunk: int = 48,
     segment_atol: float = SEGMENT_ATOL,
-) -> tuple[list[dict], dict]:
+    collect_groups: bool = False,
+) -> tuple[list[dict], dict] | tuple[list[dict], dict, list[dict]]:
     """Replay and validate pairs for one trace. Fail-closed on mismatch rate."""
     specs = executed_pair_specs(trace_events)
     # Group by (base_std) so each _sample_blocks call is legal, chunked for
@@ -111,7 +112,7 @@ def harvest_trace(
     by_std: dict[float, list[dict]] = defaultdict(list)
     for spec in specs:
         by_std[float(spec["attempt_row"]["base_std"])].append(spec)
-    pairs, mismatches, checked = [], 0, 0
+    pairs, groups, mismatches, checked = [], [], 0, 0
     for base_std, block in sorted(by_std.items()):
         for start in range(0, len(block), replay_chunk):
             chunk = block[start:start + replay_chunk]
@@ -132,11 +133,11 @@ def harvest_trace(
                 for spec in chunk
             ]
             with torch.inference_mode():
-                plans, _, _, _ = ACQ._sample_blocks(
+                plans, bases, _, _ = ACQ._sample_blocks(
                     adapter, contexts, seeds, K=PRED.K,
                     flow_base_std=float(base_std),
                 )
-            for spec, plan_block in zip(chunk, plans):
+            for spec, plan_block, base_block in zip(chunk, plans, bases):
                 event = spec["event"]
                 attempt_row = spec["attempt_row"]
                 ids = attempt_row["candidate_ids"]
@@ -172,6 +173,33 @@ def harvest_trace(
                     ),
                     "provenance": {"source": source, "block_seed": int(block_seed)},
                 })
+                if collect_groups:
+                    ids = [int(i) for i in attempt_row["candidate_ids"]]
+                    groups.append({
+                        "context": event["context"].detach().cpu().to(torch.float32),
+                        "gamma": float(event["gamma"]),
+                        "replica": int(event["replica"]),
+                        "scenario_id": int(event["scenario_id"]),
+                        "step": int(event["step"]),
+                        "attempt": int(attempt_row["attempt"]),
+                        "base_std": float(base_std),
+                        "actions": plan_block[ids].detach().cpu().to(torch.float32).clone(),
+                        "flow_bases": base_block[ids].detach().cpu().to(torch.float32).clone(),
+                        "valid": [
+                            bool(v["valid"])
+                            for v in attempt_row["verification"]
+                        ],
+                        "H10_progress": [
+                            float(v["H10_progress"])
+                            for v in attempt_row["verification"]
+                        ],
+                        "predicted_min_clearance": [
+                            float(a["predicted_min_clearance"])
+                            for a in attempt_row["prediction_audits"]
+                        ],
+                        "executed_local": spec["pos_local"],
+                        "provenance": {"source": source, "block_seed": int(block_seed)},
+                    })
     stats = {
         "specs": len(specs),
         "pairs": len(pairs),
@@ -184,6 +212,8 @@ def harvest_trace(
             f"pair replay mismatch rate {stats['mismatch_rate']:.4f} exceeds "
             f"{MAX_MISMATCH_RATE} for {source}; refusing unverifiable pairs"
         )
+    if collect_groups:
+        return pairs, stats, groups
     return pairs, stats
 
 
@@ -204,7 +234,11 @@ def run(args) -> dict:
     adapter = PORT.HP100ExpansionPolicy(policy).eval()
     device = next(adapter.parameters()).device
 
+    groups_output = getattr(args, "groups_output", None)
+    if groups_output and Path(groups_output).exists():
+        raise FileExistsError(f"refusing existing group archive: {groups_output}")
     all_pairs: list[dict] = []
+    all_groups: list[dict] = []
     per_source = {}
     for collection in map(Path, args.collection):
         block_seed = _collection_block_seed(collection)
@@ -212,12 +246,18 @@ def run(args) -> dict:
             collection / "trace_block_000.pt",
             map_location="cpu", weights_only=False,
         )
-        pairs, stats = harvest_trace(
+        harvested = harvest_trace(
             trace["events"], adapter,
             block_seed=block_seed, source=str(collection), device=device,
             replay_chunk=int(args.replay_chunk),
             segment_atol=float(args.segment_atol),
+            collect_groups=bool(groups_output),
         )
+        if groups_output:
+            pairs, stats, groups = harvested
+            all_groups.extend(groups)
+        else:
+            pairs, stats = harvested
         per_source[str(collection)] = stats
         all_pairs.extend(pairs)
         print(f"{collection.name}: {stats}", flush=True)
@@ -241,6 +281,22 @@ def run(args) -> dict:
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, output)
+    if groups_output:
+        torch.save({
+            "status": "SFM2_LABELED_GROUP_ARCHIVE",
+            "version": VERSION,
+            "sampling_checkpoint_sha256": checkpoint_sha,
+            "protocol_note": (
+                "Groups expose every recovered B candidate with its exact "
+                "verifier label, progress, clearance, and original flow base "
+                "(x0). Training on all-B rows is a DECLARED user-directed "
+                "protocol amendment for contrastive-velocity research; the "
+                "original handoff rule (train only on the two archive roles) "
+                "still governs the authoritative expansion recipes."
+            ),
+            "groups": all_groups,
+        }, Path(groups_output))
+        print(json.dumps({"groups": len(all_groups)}))
     print(json.dumps({"pairs": len(all_pairs), "per_gamma": dict(per_gamma)}))
     return payload
 
@@ -254,6 +310,9 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--expected-checkpoint-sha256", required=True)
     value.add_argument("--output", required=True)
     value.add_argument("--min-pairs", type=int, default=10000)
+    value.add_argument("--groups-output", default=None,
+                       help="also save the labeled-group archive (all recovered "
+                            "B candidates + flow bases; declared amendment)")
     value.add_argument("--replay-chunk", type=int, default=48)
     value.add_argument("--segment-atol", type=float, default=SEGMENT_ATOL)
     value.add_argument("--device", default="cuda:0")

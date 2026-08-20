@@ -141,6 +141,19 @@ def _stub_plans(seed, K=PH.PRED.K):
     return torch.randn(K, 10, 2, generator=generator)
 
 
+def _stub_bases(seed, K=PH.PRED.K):
+    generator = torch.Generator().manual_seed((int(seed) + 1) % (2**31))
+    return torch.randn(K, 20, generator=generator)
+
+
+def _stub_sample_blocks(adapter, contexts, seeds, *, K, flow_base_std):
+    return (
+        [_stub_plans(seed) for seed in seeds],
+        [_stub_bases(seed) for seed in seeds],
+        None, None,
+    )
+
+
 def _synthetic_trace(block_seed=101, corrupt_segment=False):
     key = HYBRID.LineageKey(gamma=0.3, replica=1)
     step, attempt = 4, 0
@@ -191,12 +204,7 @@ def _synthetic_trace(block_seed=101, corrupt_segment=False):
 
 def test_harvester_recovers_the_tempting_negative(monkeypatch):
     events, plans = _synthetic_trace()
-
-    def stub(adapter, contexts, seeds, *, K, flow_base_std):
-        assert K == PH.PRED.K and flow_base_std == 1.0
-        return [_stub_plans(seed) for seed in seeds], None, None, None
-
-    monkeypatch.setattr(PH.ACQ, "_sample_blocks", stub)
+    monkeypatch.setattr(PH.ACQ, "_sample_blocks", _stub_sample_blocks)
     pairs, stats = PH.harvest_trace(
         events, adapter=None, block_seed=101, source="synthetic",
         device=torch.device("cpu"),
@@ -210,15 +218,33 @@ def test_harvester_recovers_the_tempting_negative(monkeypatch):
     assert pair["neg_verification"]["valid"] is False
 
 
+def test_harvester_group_mode_carries_labels_and_flow_bases(monkeypatch):
+    events, plans = _synthetic_trace()
+    monkeypatch.setattr(PH.ACQ, "_sample_blocks", _stub_sample_blocks)
+    key = HYBRID.LineageKey(gamma=0.3, replica=1)
+    seed = HYBRID._sampling_seed(
+        101, "predictive_always_on", key, 4, microcycle=0, attempt=0,
+    )
+    pairs, stats, groups = PH.harvest_trace(
+        events, adapter=None, block_seed=101, source="synthetic",
+        device=torch.device("cpu"), collect_groups=True,
+    )
+    assert stats["pairs"] == 1 and len(groups) == 1
+    group = groups[0]
+    ids = events[0]["attempts"][0]["candidate_ids"]
+    assert torch.equal(group["actions"], plans[ids])
+    assert torch.equal(group["flow_bases"], _stub_bases(seed)[ids])
+    assert group["valid"][9] is False and group["valid"][5] is True
+    assert group["executed_local"] == 5
+    assert len(group["H10_progress"]) == 32
+    assert len(group["predicted_min_clearance"]) == 32
+
+
 def test_harvester_fails_closed_on_segment_mismatch(monkeypatch):
     events, _ = _synthetic_trace(corrupt_segment=True)
     # Make local 3 the chosen negative so the corrupted segment is exercised.
     events[0]["attempts"][0]["verification"][9]["H10_progress"] = 0.1
-
-    def stub(adapter, contexts, seeds, *, K, flow_base_std):
-        return [_stub_plans(seed) for seed in seeds], None, None, None
-
-    monkeypatch.setattr(PH.ACQ, "_sample_blocks", stub)
+    monkeypatch.setattr(PH.ACQ, "_sample_blocks", _stub_sample_blocks)
     with pytest.raises(RuntimeError, match="mismatch rate"):
         PH.harvest_trace(
             events, adapter=None, block_seed=101, source="synthetic",
