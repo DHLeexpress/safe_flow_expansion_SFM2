@@ -1458,6 +1458,11 @@
       "sha256": "b07dc6cccf0fd8842a4e68bf70a3968812d7dbdeea06b4e05b55322ddf5c8f24"
     },
     {
+      "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_nft_train.py",
+      "bytes": 13469,
+      "sha256": "515bff5221150587cbf9a900200a1d14d12fcb16ddf8d1ba94c37274bafc8f70"
+    },
+    {
       "path": "source_snapshot/overnight_run_07_12_sfm/analysis/test_sfm_hp100_parallel_gather_viz.py",
       "bytes": 8975,
       "sha256": "bfbffcc3965f10f7dc243301c3050d9d4d99bbacdbf3303d4782ad1bb0165da1"
@@ -1876,6 +1881,11 @@
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_mpc_rule_search.py",
       "bytes": 10207,
       "sha256": "3145e27406147f8671395b34f29d693ec6cce597e7ae85e4b7cd0cfe97e96c0c"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_nft_train.py",
+      "bytes": 22421,
+      "sha256": "5ec5e139818599269ee0edcf27131967d0d8974ef3dd2db39ee54f2488ce7030"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_pair_harvest.py",
