@@ -1739,8 +1739,8 @@
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_dpo_train.py",
-      "bytes": 14891,
-      "sha256": "8a9c238a42c59ad0a7ccc27bc5655161379fa732d8e03e7d69b1b167a47bde66"
+      "bytes": 14964,
+      "sha256": "81f793190c7d48218ae3c4dc2e6fa7b501e168941a41cc9a6aaef22c32993bfa"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_dynamics.py",

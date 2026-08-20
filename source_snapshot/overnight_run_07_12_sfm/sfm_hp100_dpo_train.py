@@ -233,7 +233,9 @@ def run(args) -> dict:
             )
             optimizer.zero_grad(set_to_none=True)
             total.backward()
-            grad_norm = HYBRID._gradient_norm(parameters)
+            grad_norm = HYBRID._gradient_norm(
+                [parameter.grad for parameter in parameters], device,
+            )
             torch.nn.utils.clip_grad_norm_(
                 parameters, float(args.grad_clip_norm),
             )
