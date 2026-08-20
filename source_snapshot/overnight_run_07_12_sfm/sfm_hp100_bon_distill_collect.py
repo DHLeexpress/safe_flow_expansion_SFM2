@@ -596,8 +596,11 @@ def main(argv=None):
                         help="unix time; no new block starts after this")
     parser.add_argument("--verify-workers", type=int, default=8)
     parser.add_argument("--hp-flush-every", type=int, default=2000)
+    # Batched forward vs single-row re-encode differs at kernel-accumulation
+    # order (measured up to ~7e-4 at production batch shapes); 5e-3 matches
+    # the campaign's raw-audit atol.  The max deviation is recorded per block.
     parser.add_argument("--reencode-every", type=int, default=500)
-    parser.add_argument("--reencode-atol", type=float, default=1.0e-4)
+    parser.add_argument("--reencode-atol", type=float, default=5.0e-3)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--physical-gpu", type=int, required=True)
