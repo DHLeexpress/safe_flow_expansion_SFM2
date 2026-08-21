@@ -98,6 +98,24 @@ Conservatism compounds across rounds (clearance keeps rising, SR falls):
 ONE distillation round is the optimum under this recipe; N4A3 was not
 M50-promoted.  The loop is stopped on this evidence.
 
+## Night-5 postscript (2026-08-21): mass-reweighting axis exhausted
+
+The night-5 sweep's two M20 qualifiers were promoted to fresh M50 and both
+landed at OOD CR **.411** — worse than the champion's .391:
+N5D2 (progress_weighted mass) .411/Val .710/SR .566/TO .023, ID .017;
+N5F1_s15000 (pooled_mean, pathological 96.8%-clipped training) .411/.708/
+.563/.026, ID .017.  With A2 .391 / A2-final .397 / seed-3 replication
+.336-M20-band, the recipe family has converged: positive-mass reweighting
+does not move fresh-bank CR, and the champion stands.  Also recorded:
+best-of-N calibration of the champion crosses RC3 (better at N<=4, worse at
+N>=8; N=16 CR .100 vs RC3 .064) — deploy-time expansion headroom shrank as
+the low-N gains moved into the weights.  N5D1/N5D3 (the round-2-data arms)
+died on a duplicate raw-obs key at ('0.1', 820001, 0) and remain unrun;
+BoN-32 (task 2) was never started.  Incidents: a duplicate REP training
+launched by a weak guard in the epilogue fix ran 12 h and was killed after
+verifying the screened replication artifacts' hashes were untouched; two
+chain scripts stamped false COMPLETE markers after child failures.
+
 ## Status & open items
 
 - N4A2_s12500 is a fresh-M50-certified champion.  The declared untouched
