@@ -68,6 +68,26 @@
       "sha256": "446a87fa6acd637b3951a78c81892e649eb1457efdabd5d077701d53ee33b64c"
     },
     {
+      "path": "VISUALIZATION_HANDOFF.md",
+      "bytes": 11309,
+      "sha256": "75b744969144d0d883f601086459c545a7219c3e28e018bf1cde936942e983d2"
+    },
+    {
+      "path": "assets/comparison_v3/COMPARE_LEDGER_V3.json",
+      "bytes": 5909,
+      "sha256": "10ebe6da8439455b26aeee111aaab4ea72283673e61c53fa6c755d8401b52397"
+    },
+    {
+      "path": "assets/comparison_v3/champion_gamma_time_3x2.pdf",
+      "bytes": 241495,
+      "sha256": "dc9fce77e0aa62f89daa76824e26aeb09af61db00021839d691137a6d0d5bd1e"
+    },
+    {
+      "path": "assets/comparison_v3/legend_figure.pdf",
+      "bytes": 12851,
+      "sha256": "a7bfbd1ecb1ecf751f1bf7b2cf656ab99464a8c250e4856b3e1895ec398a29dd"
+    },
+    {
       "path": "assets/diagnostics/predictive_execution/MECHANISM_RESULT.md",
       "bytes": 4339,
       "sha256": "eb70ee2bdc63c7bcfceeb1b75d275b8de27249f4ef2222c6b4cdc448af1c48b4"
@@ -483,6 +503,11 @@
       "sha256": "ff50442c5b62882d60b0659a6be6ee37a1ec2ec05ec549311a2ec9c9ff5419b1"
     },
     {
+      "path": "provenance/night4_20260820/NIGHT4_LEDGER.md",
+      "bytes": 6149,
+      "sha256": "f0ac5d0238bac8a9a4c4581b3858ce87976b32608168bb494358e63aab03e248"
+    },
+    {
       "path": "provenance/pre_expansion/double_shift_ood_metrics.json",
       "bytes": 1354535,
       "sha256": "566ac3fc87b727ad0957b837aca68a1fdd24777040584791bd372eb25e3b8977"
@@ -553,6 +578,26 @@
       "sha256": "bf6af1dd550c8c8a091298f44f987ed2d2de4ec95323a0cdab6f45a82402c1ba"
     },
     {
+      "path": "scripts/night4_epilogue.sh",
+      "bytes": 3872,
+      "sha256": "e0fc0754090e0517c35dfabc922a3470cbf85e347591016c6fb0ba1b36b56ffb"
+    },
+    {
+      "path": "scripts/night4_master_gpu0.sh",
+      "bytes": 4824,
+      "sha256": "67fb9eb5251c2009ae66d3f7086afd1260db91777103c4cb3cd2a99c779dab2b"
+    },
+    {
+      "path": "scripts/night4_master_gpu3.sh",
+      "bytes": 8556,
+      "sha256": "e27f952e6ba63f4570d8b82e15300f1ff01e7ee2c3fa4571bfe966ae37184de1"
+    },
+    {
+      "path": "scripts/night4_round2.sh",
+      "bytes": 3932,
+      "sha256": "aed845420d735a0211a5f27db55ebea6830569daecabcefc80219f6308a1e098"
+    },
+    {
       "path": "scripts/run_expansion_archive.sh",
       "bytes": 1892,
       "sha256": "15af93b8c62b8e6c147bd888ac8df8df4f502bb47cd646655523159ecb2c8f2e"
@@ -601,6 +646,31 @@
       "path": "scripts/verify_package.py",
       "bytes": 1116,
       "sha256": "d91d13cbe7619865416ee68daadfda26a44b126b1e12b2315affce14bf6d59d0"
+    },
+    {
+      "path": "scripts/video/assemble_grid.sh",
+      "bytes": 1221,
+      "sha256": "dd6ee2c842adf5026ebe73fb250460bf274fc5b22795bfe566f5d3d62c507827"
+    },
+    {
+      "path": "scripts/video/assemble_grid2.sh",
+      "bytes": 1319,
+      "sha256": "bd06fdd867b6272fd14b385123997a2d0c2edc482f26c16130e09a0eac869854"
+    },
+    {
+      "path": "scripts/video/video2_driver.sh",
+      "bytes": 2596,
+      "sha256": "eb912a0f97c8338552f6c81971ba7c12c9da98f73e20a99f516ef6483cab7422"
+    },
+    {
+      "path": "scripts/video/video3_driver.sh",
+      "bytes": 2678,
+      "sha256": "4f8458b47a3ff08bb8c1612e2fc34a0c5422a40f8b660a35535863600de002ef"
+    },
+    {
+      "path": "scripts/video/ws_sweep.sh",
+      "bytes": 817,
+      "sha256": "546a5855ea58aced6f077cdaaeea1f0c04f1cc8f64bbeaa2807808bea349854d"
     },
     {
       "path": "source_snapshot/cfm_mppi/__init__.py",
@@ -1528,9 +1598,29 @@
       "sha256": "a67cf903fe37f2bb47befaabe56efcc7c14a18696bf96c5878c0dcdd5698798c"
     },
     {
+      "path": "source_snapshot/overnight_run_07_12_sfm/collect_compare.py",
+      "bytes": 5611,
+      "sha256": "788097ee3bb33b84bef5be76aa8949f4124e23a32cb16b76895a1d393209f00b"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/collect_compare_ext.py",
+      "bytes": 5724,
+      "sha256": "aa082702a3c171b397eb8318c0f52b32c54d0c8703e390bcfd9364401db728b3"
+    },
+    {
       "path": "source_snapshot/overnight_run_07_12_sfm/execution_lambda_preflight.py",
       "bytes": 21223,
       "sha256": "ac1e5266301cf6666751c16a6501d5890f36450e3858a9002aac17d8dc49beb4"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/figure_champion_grid.py",
+      "bytes": 6954,
+      "sha256": "3e58e7d40339776a27c4b6fe36d2b7d967a789bcc3fa4cbd7084894f1e10a7b6"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/figure_legend.py",
+      "bytes": 1855,
+      "sha256": "b62cec91c06de12cf851bb858dd50c66b42605b76b629b3719e282c687f29266"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/grid_policy_sfm.py",
@@ -1541,6 +1631,41 @@
       "path": "source_snapshot/overnight_run_07_12_sfm/grid_policy_sfm_hp100.py",
       "bytes": 8266,
       "sha256": "e0c0a5b0b7a76336ed2e63d4fe40503ec18bc69f4e6c8f6c7baf914dbe45c6e7"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/kazuki_run.py",
+      "bytes": 5875,
+      "sha256": "15853de147bd6ce7e7cb3b35f365e4a0eadd80730b5695681e124c34d77a3ff2"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/make_frame.py",
+      "bytes": 4487,
+      "sha256": "cd2ed4d7e43764c00effc891e8c7a27a5519be1aecc21e6a1504c2deab139274"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/ped_extend.py",
+      "bytes": 3589,
+      "sha256": "6597813ba90b2f7dd6bafad1410e2861e4765c3a7ad924bedd5789a8ed787a6b"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/probe_crowd.py",
+      "bytes": 2799,
+      "sha256": "3661c08d4113e067d2d4db94d4dae6f07da6292c47e4532a6bfb3162500348fb"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/render_compare.py",
+      "bytes": 8844,
+      "sha256": "f09f7609520210765452b41db9ebeb7275626de852928e6861cf4037e97b6283"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/render_compare2.py",
+      "bytes": 9918,
+      "sha256": "b4ed5a67261a05a2eefbf05fb7f718b828293b8791c8ac92638a96881d2ba6a7"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/run_kazuki_ext.py",
+      "bytes": 255,
+      "sha256": "a55b1bf3ff8e339e7f5ef80bd40bb7c9ed545cb775785770069809f5ac70b9a5"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/run_sfm_b1_adaptive_k64_study.sh",
@@ -1706,6 +1831,11 @@
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_ball_launch.py",
       "bytes": 28127,
       "sha256": "77b78ff887bf29e0e27c4f7811ce5353c768cf37f23323d079917e9b430ca098"
+    },
+    {
+      "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_bon_distill_collect.py",
+      "bytes": 29682,
+      "sha256": "2f5ee9d8b9009c943d3950cb70b1993eaa403c9e3e616eec5b739496ca2dc16f"
     },
     {
       "path": "source_snapshot/overnight_run_07_12_sfm/sfm_hp100_branch_viz.py",

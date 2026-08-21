@@ -1,0 +1,115 @@
+{
+  "final_video": "compare_3x3_ep920027_final.mp4",
+  "episode": 920027,
+  "bank": "fresh M50 OOD ep0 920000, CRN noise reused from each checkpoint's own M50 json",
+  "crowd_variant": {
+    "name": "retargeting_pedestrians",
+    "why": "the frozen HumanAgent.social_force_step parks a pedestrian forever once it is within 0.1 m of its sampled goal, so with [-2,8]^2 goals and 1.0-2.0 m/s OOD speeds most of the 40 pedestrians stop by step 30-60 and the late frames showed only the robot moving",
+    "measured_ep920036_moving_fraction_by_sixth": {
+      "frozen": [
+        0.903,
+        0.568,
+        0.253,
+        0.101,
+        0.033,
+        0.025
+      ],
+      "retargeting": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "implementation": "scoped context manager rebinding HumanAgent.social_force_step (frozen module never edited); on arrival a fresh goal is drawn with the constructor's own rules - uniform in [-2,8]^2, at least 2.0 m from the robot goal (6,6), at least 1.5 m of travel - using the agent's own RNG so the scenario stays reproducible",
+    "goal_occlusion_check": "no pedestrian can park on the goal (2.0 m keep-out); nearest pedestrian to the goal at the end of ep920036 was 2.82 m",
+    "status": "VIDEO ONLY - rollouts under this variant are not the fixed-bank evaluation and are never reported as a metric"
+  },
+  "outcomes_ep920027": {
+    "gamma_0.1": {
+      "pre": "collision",
+      "champion": "success (121 steps)",
+      "kazuki": "success (82)"
+    },
+    "gamma_0.5": {
+      "pre": "success",
+      "champion": "success (72)",
+      "kazuki": "success (50)"
+    },
+    "gamma_1.0": {
+      "pre": "success",
+      "champion": "success (78)",
+      "kazuki": "collision (36)"
+    }
+  },
+  "why_this_episode": "under the re-targeting crowd only 3 of the 50 bank episodes keep the champion successful at all three gammas (920011, 920020, 920027); 920011 has no PRE failure (no contrast) and 920020 has Kazuki colliding at every gamma even at w_s=1.4, so 920027 is the only pick that shows all three behaviours plus visibly different champion routes per gamma (gamma 0.1 takes a wide S detour, gamma 1.0 runs nearly straight)",
+  "kazuki_calibration": {
+    "used": {
+      "w_safe": 0.7,
+      "w_goal": 0.5
+    },
+    "locked_default": {
+      "w_safe": 0.3,
+      "w_goal": 0.5
+    },
+    "sweeps_run": {
+      "ep920020": {
+        "0.7": "collision at all gammas",
+        "1.0": "collision at all gammas",
+        "1.4": "collision at all gammas"
+      },
+      "ep920027": {
+        "0.5": "collision 0.1, collision 0.5, success 1.0",
+        "0.7": "success 0.1, success 0.5, collision 1.0"
+      }
+    },
+    "honest_note": "the requested story (Kazuki succeeds only at gamma 0.1) could not be produced by tuning: Kazuki's guidance is gamma-independent, so its per-gamma outcome pattern is driven by the CFM base samples, not by w_safe; w_s=0.5 even inverts the pattern. The delivered video reports what the rollouts actually did."
+  },
+  "style_revision_2": {
+    "tick_numbers": "1.5x (9.0 -> 13.5 pt)",
+    "multi_step_safety_badge": "1.5x box and text (15 -> 22.5 pt, pad 0.28 -> 0.42), coloured border",
+    "panel_labels": "removed from the panels; column (gamma) and row (method) titles plus one legend live in an outside frame overlaid on the grid",
+    "panel_spacing": "tight per-panel margins (left .085, right .995, top .995, bottom .075) so the 3x3 grid is compact",
+    "trails": "every row now draws each executed H10 action window in blue when that window was multi-step safe and in blackish red (#6B0C0C) when it was not, at 10% transparency with a solid black boundary",
+    "executed_paths": "PRE #CF2626, Safe Flow Expansion #2E9A30, CFM-MPPI #BB3FC4 (black replaced), so the invalid-window red can no longer be confused with the PRE trajectory"
+  },
+  "provenance": {
+    "champion_checkpoint_sha256": "3d782897ac73455823d2d67382e7410d4f23ba469884548cd25c7dfe5a7ebebe",
+    "r0_checkpoint_sha256": "258999ae8ccee8aec5aab92a6f751221d3c15583ac26e0a7ec8311f13316ec44",
+    "kazuki_source_commit": "9e427979a4b901a56a73513c4da06164f5fed5b4",
+    "remote_root": "/data3/research1/claude_sfm2_predictive_cfc09ad/kazuki_compare/v3",
+    "scripts": [
+      "ped_extend.py",
+      "collect_compare_ext.py",
+      "run_kazuki_ext.py",
+      "render_compare2.py",
+      "make_frame.py",
+      "assemble_grid2.sh"
+    ]
+  },
+  "also_delivered": {
+    "compare_3x3_ep920020_v3.mp4": "same style, strongest champion contrast (PRE 0/3, champion 3/3, Kazuki 0/3) but no Kazuki success anywhere",
+    "compare_3x3_ep920036_v2.mp4": "the original episode under the new crowd - champion collides at gamma 0.5/1.0, kept as the honest 'what changed' record"
+  },
+  "special_request_figures": {
+    "champion_gamma_time_3x2.pdf": {
+      "content": "Safe Flow Expansion row reshaped to gamma (rows) x time (columns); left column t = 4 s, right column t = 12 s caption",
+      "honest_note": "the champion reaches the goal at 12.1 s (gamma 0.1), 7.1 s (gamma 0.5) and 7.7 s (gamma 1.0); the right column therefore shows the terminal frame for gamma 0.5 and 1.0 (the robot is parked at the goal from then on), captioned t = 12 s as requested",
+      "style": "no multi-step-safety badge; verifier positive actions pure blue #0000FF, negative pure red #FF0000, 20% transparency with black boundary; executed trajectory green #2E9A30; compact spacing with x/y axis labels"
+    },
+    "legend_figure.pdf": {
+      "entries": [
+        "green: Executed trajectory",
+        "blue: Verifier positive action",
+        "red: Verifier negative action",
+        "green box: Verifier polytope"
+      ],
+      "note": "tight bounding box, saved separately"
+    },
+    "compare_3x3_ep920027_final_last_frame.pdf": {
+      "content": "last frame of the final 3x3 video as PDF (raster embed, 1900x2096 at 200 dpi)"
+    }
+  }
+}
