@@ -86,12 +86,24 @@ used, clearance rose ~+.02-.04, and OOD CR moved -8.9pp in one round.
   variables in backgrounded units; relaunched from committed script files
   (the standing lesson now applied to every launch).
 
+## Round 2 (completed): the distillation loop saturates after one round
+
+Teacher = N4A2_s12500 rolled BoN-16 on fresh scenes ep0 820000+/880000+
+(18 blocks, 142,915 certified rows, 2,520 episodes; teacher episode CR
+**.127** vs RC3-teacher .152 — the deploy-time ceiling did move).  Student
+N4A3 = N4A2-continue on round-2 data only, same recipe.  M20: best point
+s2500 CR .343 / Val .742, final .386, timeouts inflated to .057-.086 —
+does NOT beat the champion's M20 (.329/.739) and fails the timeout guard.
+Conservatism compounds across rounds (clearance keeps rising, SR falls):
+ONE distillation round is the optimum under this recipe; N4A3 was not
+M50-promoted.  The loop is stopped on this evidence.
+
 ## Status & open items
 
 - N4A2_s12500 is a fresh-M50-certified champion.  The declared untouched
   M100 confirmation (ep0 940000/950000, contract lock) remains
   USER-GATED and has not been touched.
-- Round 2 of the distillation loop (teacher = N4A2_s12500) is collecting
-  as of this writing: arm N4A3, screen `screen_m20_N4c`.
-- The N-switch (best-of-N at deploy) remains an unofficial final weapon;
-  its calibration on the new champion is a cheap future measurement.
+- Epilogue in flight: best-of-N calibration of N4A2_12500 on the standard
+  M20 bank/seeds (comparable to the r0/RC3 sweep), and an update-seed-3
+  replication of the A2 recipe with its own M20 screen.
+- The N-switch (best-of-N at deploy) remains an unofficial final weapon.
