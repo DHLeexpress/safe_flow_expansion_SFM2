@@ -116,11 +116,46 @@ launched by a weak guard in the epilogue fix ran 12 h and was killed after
 verifying the screened replication artifacts' hashes were untouched; two
 chain scripts stamped false COMPLETE markers after child failures.
 
+## M100 protocol confirmation (2026-08-21, run under the user's authority)
+
+The gated untouched M100 banks (OOD ep0 940000 / ID 950000, M=100/gamma,
+n=700/bank, noise seed 20260816) were spent on 2026-08-21 (dir
+`gamma_m100_20260821/`; every JSON SFM_HP100_RAW_EVAL_COMPLETE, expert
+queues COMPLETE failures=0, same banks for every method):
+
+| method | OOD CR | OOD SR | OOD Val | OOD clr | ID CR | ID SR |
+| --- | --- | --- | --- | --- | --- | --- |
+| plain MPPI (ancestor) | .790 | .210 | .187 | .090 | .450 | .550 |
+| MPPI-DCBF (per-gamma, best/worst) | .480-.570 | .43-.52 | .62-.71 | .09-.11 | .000-.070 | .93-1.00 |
+| PRE r0 | .507 | .490 | .663 | .092 | .047 | .953 |
+| **champion N4A2_s12500** | **.423** | **.561** | **.729** | **.122** | **.034** | .964 |
+
+- Champion vs r0 on the untouched banks: OOD CR -8.4pp (-16.6% rel,
+  ~4.5 SE at n=700), Validity +6.6pp, clearance +.030, SR +7.1pp,
+  TO .003->.016, time 7.26->8.46 (declared trade); ID improves too.
+- Champion beats MPPI-DCBF at EVERY gamma on OOD (DCBF best .480 at
+  gamma 1.0); on ID the strictest DCBF (gamma 0.1) is perfect (CR 0,
+  SR 1.0) while the champion sits at .034 with faster time.
+- Per-gamma OOD CR, r0 -> champion: 0.1 .38->.34, 0.2 .52->.45,
+  0.3 .60->.47, 0.4 .49->.43, 0.5 .53->.37, 0.7 .53->.46, 1.0 .50->.44 —
+  improvement at all seven gammas.
+- A supplementary `expert_average_clearance_v2/` rerun (adds gamma 0.15
+  and an average-clearance metric) exists alongside.
+
+## Night-5 failure root cause (recorded)
+
+N5D1/N5D3's `duplicate raw-obs key ('0.1', 820001, 0)` is an ep0-range
+collision of my making: round-1 collection on GPU0 ran 24 blocks
+(ep0 800000-823999) while round-2 GPU0 was launched at ep0 820000 —
+episodes 820000-823999 exist in BOTH r1 and r2 manifests, so any training
+that joins r1+r2 manifests fails closed (N4A3 survived because it used r2
+only).  Remedy for future combined runs: drop r2_gpu0 blocks 0000-0003
+(or re-collect them at a disjoint ep0).
+
 ## Status & open items
 
-- N4A2_s12500 is a fresh-M50-certified champion.  The declared untouched
-  M100 confirmation (ep0 940000/950000, contract lock) remains
-  USER-GATED and has not been touched.
+- N4A2_s12500 is now M100-confirmed on the declared untouched banks (the
+  protocol's final evaluation), in addition to fresh-M50 certification.
 - Epilogue in flight: best-of-N calibration of N4A2_12500 on the standard
   M20 bank/seeds (comparable to the r0/RC3 sweep), and an update-seed-3
   replication of the A2 recipe with its own M20 screen.
