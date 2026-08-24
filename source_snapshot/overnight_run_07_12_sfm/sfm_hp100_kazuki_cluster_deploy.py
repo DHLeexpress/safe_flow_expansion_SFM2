@@ -20,6 +20,17 @@ monkeypatched).  The locked recipe is
 Every knob is pinned by ``sfm_hp100_kazuki.LOCKED_CONFIG_ITEMS`` and audited by
 ``sfm_hp100_kazuki.locked_config()``, which this driver calls and records.
 
+Guidance variants (``--safe-coef`` / ``--goal-coef``)
+----------------------------------------------------
+The two guidance coefficients -- and ONLY those two -- may be moved off the
+locked defaults for a declared safety-versus-goal spread.  The frozen modules
+are still never edited: the driver rebinds ``sfm_hp100_kazuki.locked_config``
+inside its own process to a factory that reproduces ``LOCKED_CONFIG_ITEMS``
+verbatim except for ``safe_coefs`` and ``goal_coef`` (see
+``install_guidance_variant``).  Such a run is stamped
+``result_kind = "controller_mode_guidance_variant"`` and carries the full
+``config_override`` record; a run at the locked ``(0.3, 0.5)`` rebinds nothing.
+
 gamma
 -----
 gamma reaches the controller through exactly one path: the low-dimensional
@@ -133,6 +144,69 @@ def load_episode_lists(path, gammas):
     if len(set(pooled)) != len(pooled):
         raise ValueError("episode lists must be disjoint across gammas")
     return lists, sizes.pop()
+
+
+# --------------------------------------------------------------------------
+# guidance-coefficient variants (DECLARED DEVIATION from the locked defaults)
+# --------------------------------------------------------------------------
+def install_guidance_variant(KZ, *, safe_coef: float, goal_coef: float):
+    """Swap ONLY the two guidance coefficients of the locked recipe.
+
+    ``kazuki_hp100_deploy`` builds its recipe by calling the module-level
+    ``locked_config()``; there is no config argument.  Rather than edit the
+    frozen comparator (``sfm_hp100_kazuki.py`` and ``sfm_kazuki.py`` are
+    read-only and their SHA-256 is recorded in every payload), this driver
+    rebinds ``sfm_hp100_kazuki.locked_config`` **inside its own process** to a
+    factory that reproduces ``LOCKED_CONFIG_ITEMS`` verbatim except for
+    ``safe_coefs`` and ``goal_coef``.  The dataclass-schema audit of the
+    original ``locked_config`` is kept, so a newly added knob still fails
+    closed, and every other coefficient (ODE times, warm start, elite/copy
+    counts, MPPI lambda/sigma/beta, refinement cost, margins) is untouched.
+
+    Returns ``None`` when both coefficients equal the locked defaults, in which
+    case NOTHING is rebound and the run is the literal locked comparator.
+    """
+    locked_safe = float(KZ.SAFE_COEF)
+    locked_goal = float(KZ.GOAL_COEF)
+    if (abs(safe_coef - locked_safe) <= 1e-12
+            and abs(goal_coef - locked_goal) <= 1e-12):
+        return None
+
+    BASE = KZ.BASE
+    expected = dict(KZ.LOCKED_CONFIG_ITEMS)
+    declared_fields = tuple(BASE.KazukiConfig.__dataclass_fields__)
+    if tuple(expected) != declared_fields:
+        raise RuntimeError(
+            "KazukiConfig schema changed; the variant driver must be repinned: "
+            f"locked={tuple(expected)}, current={declared_fields}"
+        )
+    expected["safe_coefs"] = (float(safe_coef),)
+    expected["goal_coef"] = float(goal_coef)
+
+    def variant_config():
+        config = BASE.KazukiConfig(**expected).validate()
+        if config.to_dict() != expected:
+            raise RuntimeError("variant Kazuki config does not match its declaration")
+        return config
+
+    variant_config()                      # fail closed before any rollout
+    KZ.locked_config = variant_config
+    return dict(
+        mechanism=(
+            "runtime rebinding of sfm_hp100_kazuki.locked_config inside this "
+            "driver process; the frozen module files are unmodified and their "
+            "SHA-256 is recorded in locked_kazuki.evaluator_sources"
+        ),
+        changed={
+            "safe_coefs": [float(safe_coef)],
+            "goal_coef": float(goal_coef),
+        },
+        locked_values={
+            "safe_coefs": [locked_safe],
+            "goal_coef": locked_goal,
+        },
+        unchanged="every other entry of sfm_hp100_kazuki.LOCKED_CONFIG_ITEMS",
+    )
 
 
 # --------------------------------------------------------------------------
@@ -377,6 +451,14 @@ def main(argv=None):
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--sample-seed", type=int, default=None,
                         help="defaults to the locked sfm_hp100_kazuki.SAMPLE_SEED")
+    parser.add_argument("--safe-coef", type=float, default=None,
+                        help=("CBF guidance coefficient w_s; defaults to the "
+                              "locked 0.3.  Any other value is a DECLARED "
+                              "deviation and is stamped into every payload."))
+    parser.add_argument("--goal-coef", type=float, default=None,
+                        help="goal guidance coefficient w_g; locked default 0.5")
+    parser.add_argument("--variant", default="locked",
+                        help="free-form variant tag stamped into every payload")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--cells-dirname", default="cells_kazuki")
     parser.add_argument("--markers-dirname", default="markers")
@@ -418,10 +500,19 @@ def main(argv=None):
     policy.eval()
 
     config = KZ.locked_config()          # fails closed if any knob drifted
+    safe_coef = float(KZ.SAFE_COEF if args.safe_coef is None else args.safe_coef)
+    goal_coef = float(KZ.GOAL_COEF if args.goal_coef is None else args.goal_coef)
+    override = install_guidance_variant(KZ, safe_coef=safe_coef, goal_coef=goal_coef)
+    if override is not None:
+        config = KZ.locked_config()
     locked = dict(
         version=str(KZ.VERSION),
-        safe_coef=float(KZ.SAFE_COEF),
-        goal_coef=float(KZ.GOAL_COEF),
+        variant=str(args.variant),
+        safe_coef=safe_coef,
+        goal_coef=goal_coef,
+        safe_coef_locked_default=float(KZ.SAFE_COEF),
+        goal_coef_locked_default=float(KZ.GOAL_COEF),
+        config_override=override,
         sample_seed=sample_seed,
         sample_seed_default=int(KZ.SAMPLE_SEED),
         sample_seed_formula="torch.manual_seed(sample_seed + episode*1000 + step)",
@@ -504,8 +595,11 @@ def main(argv=None):
         status=STATUS_CELL,
         version=VERSION,
         controller=CONTROLLER,
-        result_kind="controller_mode",
+        result_kind=("controller_mode" if override is None
+                     else "controller_mode_guidance_variant"),
         authoritative_raw_eval=False,
+        variant=str(args.variant),
+        guidance_coefficients=dict(safe_coef=safe_coef, goal_coef=goal_coef),
         series=str(args.series),
         source=source,
         source_sha256=source_sha,
@@ -527,10 +621,11 @@ def main(argv=None):
         scene=SS.scene_profile(args.scene_profile),
         locked_kazuki=locked,
         selection_rule=(
-            "locked Kazuki generate-guide-refine: 200 guided CFM samples "
-            "(v + 0.5*grad_goal + 0.3*rho_H*grad_CBF) -> top-10 elites -> 200 "
-            "perturbations -> MPPI refinement under the b1_safemppi cost; warm "
-            "start s=0.8; no shield, template, privileged lookahead or fallback"
+            "Kazuki generate-guide-refine: 200 guided CFM samples "
+            f"(v + {goal_coef:g}*grad_goal + {safe_coef:g}*rho_H*grad_CBF) -> "
+            "top-10 elites -> 200 perturbations -> MPPI refinement under the "
+            "b1_safemppi cost; warm start s=0.8; no shield, template, "
+            "privileged lookahead or fallback"
         ),
         seeds=dict(kazuki_sample_seed=sample_seed),
         latent_bank=(
