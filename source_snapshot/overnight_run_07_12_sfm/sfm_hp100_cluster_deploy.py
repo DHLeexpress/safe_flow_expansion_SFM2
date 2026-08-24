@@ -45,6 +45,17 @@ MPPI-DCBF anchor cells this plot joins against).  The executed-step-only mean
 (terminal visit dropped) is reported alongside as
 ``episode_average_clearance_executed_steps``.
 
+Explicit episode lists (ADDITIVE, optional)
+------------------------------------------
+``--episode-list-json PATH`` replaces the contiguous ``--ep0/--M`` bank with an
+explicit, per-gamma scenario list ``{"<gamma>": [episode_id, ...]}``.  Every
+requested gamma must appear as a key and every list must have the same length,
+which becomes ``M``.  Scene construction, seeding and the ``episode`` field of
+every emitted row all use the actual listed id, so an episode list of arbitrary
+(e.g. disjoint random) ids behaves exactly like a contiguous bank of the same
+size.  The declared latent bank is still indexed by the ROLLOUT INDEX
+(position inside the list), so its shape and the seed convention are unchanged.
+
 Layout::
 
     <out-dir>/cells/<series>_g<gamma>_J<J>.json     one per gamma
@@ -165,6 +176,43 @@ def select_argmin(cost_row, progress_row):
 # --------------------------------------------------------------------------
 # declared latent bank (NOT the canonical CRN bank -- see the module docstring)
 # --------------------------------------------------------------------------
+def load_episode_lists(path, gammas):
+    """Read ``{"<gamma>": [ids...]}`` and return ``(per_gamma_lists, M)``.
+
+    Keys are matched with ``f"{gamma:g}"`` first and then by numeric value, so
+    ``"0.15"``, ``"0.150"`` and ``"1"``/``"1.0"`` all resolve.  Lists must be
+    non-empty, duplicate-free, equal-length across gammas, and disjoint from one
+    another (a scenario id is never reused inside one run).
+    """
+    with open(path) as stream:
+        raw = json.load(stream)
+    if not isinstance(raw, dict):
+        raise ValueError("--episode-list-json must contain a gamma -> ids object")
+    numeric = {}
+    for key, value in raw.items():
+        numeric[float(key)] = value
+    lists = {}
+    for gamma in gammas:
+        matches = [k for k in numeric if abs(k - float(gamma)) <= 1e-12]
+        if len(matches) != 1:
+            raise ValueError(f"episode list has no unique entry for gamma={gamma:g}")
+        ids = [int(v) for v in numeric[matches[0]]]
+        if not ids:
+            raise ValueError(f"episode list for gamma={gamma:g} is empty")
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"episode list for gamma={gamma:g} has duplicates")
+        if any(v < 0 for v in ids):
+            raise ValueError(f"episode list for gamma={gamma:g} has a negative id")
+        lists[float(gamma)] = ids
+    sizes = {len(v) for v in lists.values()}
+    if len(sizes) != 1:
+        raise ValueError("every gamma must list the same number of episodes")
+    pooled = [v for ids in lists.values() for v in ids]
+    if len(set(pooled)) != len(pooled):
+        raise ValueError("episode lists must be disjoint across gammas")
+    return lists, sizes.pop()
+
+
 def declared_latent_banks(*, n_gammas, M, T, d, J, base_seed, extra_seed):
     base = np.random.default_rng(int(base_seed)).standard_normal(
         (int(n_gammas), int(M), int(T), int(d)), dtype=np.float32
@@ -195,6 +243,7 @@ def run_cell(
     device,
     modules,
     progress_every=20,
+    episode_ids=None,
 ):
     EVAL = modules["EVAL"]
     BASE = modules["BASE"]
@@ -208,20 +257,29 @@ def run_cell(
         raise ValueError("extra latent bank too small for the requested J")
 
     environment = SS.scene_profile(scene_profile)
+    # Contiguous bank unless an explicit scenario list is supplied; either way
+    # the rollout index (position) drives the declared latent bank and the
+    # listed id drives the scene, the seeds and the emitted ``episode`` field.
+    if episode_ids is None:
+        identifiers = [int(ep0) + rollout_index for rollout_index in range(int(M))]
+    else:
+        identifiers = [int(value) for value in episode_ids]
+        if len(identifiers) != int(M):
+            raise ValueError("episode list length does not match M")
     episodes = [
         EVAL.Episode(
             gamma_index=int(gamma_index),
             rollout_index=rollout_index,
-            episode=int(ep0) + rollout_index,
+            episode=int(identifier),
             gamma=float(gamma),
             humans=SS.make_humans(
-                int(ep0) + rollout_index,
+                int(identifier),
                 seed=0,
                 n_ped=int(environment["n_ped"]),
                 speed_range=tuple(environment["ped_speed_range"]),
             ),
         )
-        for rollout_index in range(int(M))
+        for rollout_index, identifier in enumerate(identifiers)
     ]
     # Per-episode nearest-pedestrian surface-clearance trace accounting.  One
     # sample per visited state (pre-step states + the terminal state), exactly
@@ -464,6 +522,15 @@ def main(argv=None):
     parser.add_argument("--gammas", default="0.1,0.15,0.2,0.5,1.0")
     parser.add_argument("--ep0", type=int, default=940000)
     parser.add_argument("--M", type=int, default=100)
+    parser.add_argument(
+        "--episode-list-json", default=None,
+        help=('explicit scenario ids as {"<gamma>": [id, ...]}; overrides '
+              "--ep0/--M (M becomes the common list length)"),
+    )
+    parser.add_argument(
+        "--wave", default=None,
+        help="free-form wave tag stamped into every emitted cell payload",
+    )
     parser.add_argument("--J", type=int, required=True)
     parser.add_argument("--base-seed", type=int, required=True)
     parser.add_argument("--extra-seed", type=int, required=True)
@@ -472,6 +539,10 @@ def main(argv=None):
     parser.add_argument("--physical-gpu", type=int, required=True)
     parser.add_argument("--out-dir", required=True,
                         help="cluster_plot root; cells/ and markers/ live under it")
+    parser.add_argument("--cells-dirname", default="cells",
+                        help="subdirectory of --out-dir receiving the cell JSONs")
+    parser.add_argument("--markers-dirname", default="markers",
+                        help="subdirectory of --out-dir receiving the done marker")
     parser.add_argument("--progress-every", type=int, default=20)
     parser.add_argument("--overwrite", action="store_true",
                         help="recompute cells whose JSON already exists")
@@ -507,15 +578,28 @@ def main(argv=None):
     if len(set(gammas)) != len(gammas):
         raise ValueError("duplicate gamma requested")
 
+    episode_lists = None
+    episode_list_sha = None
+    M = int(args.M)
+    if args.episode_list_json:
+        episode_lists, M = load_episode_lists(args.episode_list_json, gammas)
+        episode_list_sha = sha256_file(args.episode_list_json)
+        print(json.dumps({
+            "event": "episode_list_loaded",
+            "path": os.path.abspath(args.episode_list_json),
+            "sha256": episode_list_sha, "M": int(M),
+            "gammas": [float(g) for g in gammas],
+        }), flush=True)
+
     base, extra = declared_latent_banks(
-        n_gammas=len(gammas), M=int(args.M), T=EVAL.T, d=int(policy.d),
+        n_gammas=len(gammas), M=int(M), T=EVAL.T, d=int(policy.d),
         J=int(args.J), base_seed=int(args.base_seed),
         extra_seed=int(args.extra_seed),
     )
 
     out_root = Path(os.path.abspath(args.out_dir))
-    cells_dir = out_root / "cells"
-    markers_dir = out_root / "markers"
+    cells_dir = out_root / str(args.cells_dirname)
+    markers_dir = out_root / str(args.markers_dirname)
     cells_dir.mkdir(parents=True, exist_ok=True)
     markers_dir.mkdir(parents=True, exist_ok=True)
 
@@ -535,8 +619,14 @@ def main(argv=None):
             if isinstance(checkpoint, dict) else None
         ),
         J=int(args.J),
-        ep0=int(args.ep0),
-        M=int(args.M),
+        ep0=(None if episode_lists is not None else int(args.ep0)),
+        M=int(M),
+        wave=(None if args.wave is None else str(args.wave)),
+        episode_source=("declared_episode_list" if episode_lists is not None
+                        else "contiguous_bank"),
+        episode_list_json=(None if episode_lists is None
+                           else os.path.abspath(args.episode_list_json)),
+        episode_list_sha256=episode_list_sha,
         gammas_requested=[float(value) for value in gammas],
         scene=SS.scene_profile(args.scene_profile),
         mpc_params=dict(lam=LAM, rho=RHO, r_eff=R_EFF, sigma_len=SIGMA_LEN,
@@ -600,11 +690,14 @@ def main(argv=None):
             written.append(str(target))
             continue
         started = time.time()
+        cell_episodes = (None if episode_lists is None
+                         else list(episode_lists[float(gamma)]))
         rows, stats = run_cell(
             policy, gamma=float(gamma), gamma_index=int(gamma_index),
-            scene_profile=args.scene_profile, ep0=int(args.ep0), M=int(args.M),
+            scene_profile=args.scene_profile, ep0=int(args.ep0), M=int(M),
             J=int(args.J), base=base, extra=extra, device=args.device,
             modules=modules, progress_every=int(args.progress_every),
+            episode_ids=cell_episodes,
         )
         summary = summarize_cell(rows)
         payload = dict(common)
@@ -612,6 +705,8 @@ def main(argv=None):
             gamma=float(gamma),
             gamma_tag=gamma_tag(gamma),
             gamma_index=int(gamma_index),
+            episodes=(list(range(int(args.ep0), int(args.ep0) + int(M)))
+                      if cell_episodes is None else cell_episodes),
             seconds=round(time.time() - started, 1),
             created_unix=time.time(),
             selection=stats,
@@ -641,6 +736,11 @@ def main(argv=None):
         status="SFM2_CLUSTER_RUN_COMPLETE",
         series=str(args.series), J=int(args.J),
         gammas=[float(value) for value in gammas],
+        wave=(None if args.wave is None else str(args.wave)),
+        episode_list_json=(None if episode_lists is None
+                           else os.path.abspath(args.episode_list_json)),
+        episode_list_sha256=episode_list_sha,
+        M=int(M),
         cells=written,
         checkpoint_sha256=actual,
         source_sha256=source_sha,
