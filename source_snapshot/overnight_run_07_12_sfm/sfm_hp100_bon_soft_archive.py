@@ -602,11 +602,16 @@ def build(args) -> dict:
         joined_steps=len(steps), skipped_steps=int(skipped_steps),
         candidates_verified=int(candidates_total),
         verifier_errors=int(certify["errors"]),
-        valid_candidates=int(sum(
-            len(step.get("valid") or []) for step in steps
-        )),
-        valid_fraction=float(valid_total) / max(1, candidates_total),
+        # Valid counts are the CERTIFICATION result, before any row-budget
+        # subsampling; emitted_rows is what actually reached the archives.
+        valid_candidates=int(sample_report["rows_before"]),
+        valid_fraction=(
+            float(sample_report["rows_before"]) / max(1, candidates_total)
+        ),
         emitted_rows=int(valid_total),
+        emitted_fraction_of_valid=(
+            float(valid_total) / max(1, sample_report["rows_before"])
+        ),
         tau=float(tau), clip=float(clip), tau_report=tau_report,
         subsample=sample_report,
         chosen_recheck=dict(
