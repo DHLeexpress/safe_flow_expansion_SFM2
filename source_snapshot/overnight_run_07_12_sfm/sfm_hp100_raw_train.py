@@ -9,6 +9,16 @@ existing declared knob — alpha with literal/hinge negative modes, the D+
 mass modes including ``mode_gamma_tree``, exposure passes, clip/drift/finite
 guards, exposure and mass audits — runs unchanged through the provider path.
 
+``--positive-mass`` accepts every mode declared in
+``sfm_hp100_expansion_update.POSITIVE_MASS_MODES``, including ``mpc_soft``:
+the soft multi-candidate archives built by ``sfm_hp100_bon_soft_archive``
+carry a within-step Boltzmann weight per verifier-valid best-of-N candidate
+in ``prediction_audit["mpc_soft_weight"]``, and that mode normalizes it the
+way ``progress_weighted`` normalizes goal progress.  Those archives hold
+several rows per captured step, distinguished by ``attempt`` (the candidate
+index), so the ``(lineage, scenario_id, step, attempt, round, block)`` dedup
+key stays unique while all siblings of a step share one raw-obs record.
+
 ``--subset-fraction`` applies the stratified-nested convention (per-gamma
 ``random.Random(7)`` shuffle, prefix of each gamma group, per role), so
 fraction ``k/10`` reproduces the nested pseudo-round subsets and any two

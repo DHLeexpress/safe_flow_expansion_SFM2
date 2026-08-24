@@ -163,7 +163,7 @@ NEGATIVE_LOSS_ABORT_FACTOR = 10.0
 # carries total positive mass exactly 1.
 POSITIVE_MASS_MODES = (
     "pooled_mean", "per_gamma_balanced", "progress_weighted",
-    "mode_gamma_tree",
+    "mode_gamma_tree", "mpc_soft",
 )
 # The weighted modes floor every weight at this fraction of the uniform
 # 1/|D+| weight before the single final renormalization, so no executed
@@ -221,7 +221,9 @@ class UpdateConfig:
     # gamma's pooled mass share but redistributes it inside the gamma
     # proportionally to the selected candidate's H10 goal progress;
     # mode_gamma_tree anchors on goal-seeking rows while concentrating
-    # learning on tagged avoidance rows (see positive_mass_weights).
+    # learning on tagged avoidance rows; mpc_soft reads the per-row
+    # within-step Boltzmann weight a soft multi-candidate archive carries in
+    # prediction_audit["mpc_soft_weight"] (see positive_mass_weights).
     positive_mass: str = "pooled_mean"
     # mode_gamma_tree only: total objective mass carried by the avoidance
     # branch (interaction rows); goal-seeking rows anchor the remainder.
@@ -433,6 +435,32 @@ def _leaf_gamma_uniform(
         weights[members] = mass / (unique.size * members.size)
 
 
+def _gamma_share_proportional(
+    values: np.ndarray, gammas: np.ndarray, unique: np.ndarray,
+    weights: np.ndarray, count: int, uniform: float,
+) -> np.ndarray:
+    """Per-gamma pooled share, redistributed inside the gamma by ``values``.
+
+    The shared normalization of every value-proportional mass mode: each
+    gamma keeps its pooled share ``n_gamma/n``; inside the gamma the share is
+    split proportionally to the nonnegative part of ``values`` (uniformly if
+    that part sums to zero); every weight is floored at
+    ``PROGRESS_WEIGHT_FLOOR_FRACTION`` of uniform, then the vector is
+    renormalized once globally to total mass exactly 1.
+    """
+    for gamma in unique:
+        mask = gammas == gamma
+        share = float(mask.sum()) / count
+        base = np.clip(values[mask], 0.0, None)
+        total = float(base.sum())
+        if total <= 0.0:
+            weights[mask] = share / int(mask.sum())
+        else:
+            weights[mask] = share * base / total
+    weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
+    return weights / float(weights.sum())
+
+
 def positive_mass_weights(
     positives: list[dict], mode: str, *, avoid_mass: float = 0.65,
 ) -> np.ndarray:
@@ -464,6 +492,15 @@ def positive_mass_weights(
       mass per gamma equally, then uniformly per row; weights are floored at
       ``PROGRESS_WEIGHT_FLOOR_FRACTION`` of uniform and renormalized once
       globally to total mass exactly 1.
+    - ``mpc_soft``: the multi-candidate distillation mode.  Each row carries
+      ``row["prediction_audit"]["mpc_soft_weight"]`` — the within-step
+      Boltzmann weight over the MPC cost that
+      ``sfm_hp100_bon_soft_archive`` assigned to that verifier-valid
+      best-of-N candidate — and the vector is normalized exactly as
+      ``progress_weighted`` normalizes (per-gamma pooled share, proportional
+      inside the gamma, uniform floor, one global renormalization).  A row
+      without the field is a hard error: silently falling back to uniform
+      would erase the entire point of the archive.
     """
     if mode not in POSITIVE_MASS_MODES:
         raise ValueError(f"undeclared positive mass mode: {mode!r}")
@@ -518,21 +555,55 @@ def positive_mass_weights(
                 _leaf_gamma_uniform(weights, leaf, gammas, mass)
         weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
         return weights / float(weights.sum())
+    if mode == "mpc_soft":
+        try:
+            soft = np.asarray([
+                float(row["prediction_audit"]["mpc_soft_weight"])
+                for row in positives
+            ])
+        except KeyError as error:
+            raise KeyError(
+                "mpc_soft requires prediction_audit['mpc_soft_weight'] on "
+                "every D+ row; build the archive with "
+                "sfm_hp100_bon_soft_archive"
+            ) from error
+        if not np.isfinite(soft).all() or float(soft.min()) < 0.0:
+            raise ValueError(
+                "mpc_soft weights must be finite and nonnegative"
+            )
+        return _gamma_share_proportional(
+            soft, gammas, unique, weights, count, uniform,
+        )
     progress = np.asarray([
         float(row["prediction_audit"]["H10_goal_progress"])
         for row in positives
     ])
-    for gamma in unique:
-        mask = gammas == gamma
-        share = float(mask.sum()) / count
-        base = np.clip(progress[mask], 0.0, None)
-        total = float(base.sum())
-        if total <= 0.0:
-            weights[mask] = share / int(mask.sum())
+    return _gamma_share_proportional(
+        progress, gammas, unique, weights, count, uniform,
+    )
+
+
+def _chosen_sibling_masses(positives: list[dict], weights: np.ndarray) -> dict:
+    """Audited mpc_soft mass on executed windows vs. their siblings.
+
+    A row is "chosen" when its candidate index equals the best-of-N choice
+    the collector executed.  Rows without a ``bon_controller`` block are
+    counted as unknown rather than assumed either way.
+    """
+    masses = {"chosen": 0.0, "sibling": 0.0, "unknown": 0.0}
+    counts = {key: 0 for key in masses}
+    for row, weight in zip(positives, weights):
+        controller = row.get("bon_controller")
+        if not controller or "choice" not in controller:
+            branch = "unknown"
         else:
-            weights[mask] = share * base / total
-    weights = np.maximum(weights, PROGRESS_WEIGHT_FLOOR_FRACTION * uniform)
-    return weights / float(weights.sum())
+            branch = (
+                "chosen" if int(row["attempt"]) == int(controller["choice"])
+                else "sibling"
+            )
+        masses[branch] += float(weight)
+        counts[branch] += 1
+    return {"mass": masses, "rows": counts}
 
 
 def _branch_masses(positives: list[dict], weights: np.ndarray) -> dict:
@@ -995,6 +1066,13 @@ def expansion_update(
         "positive_mass_per_branch": (
             _branch_masses(positives, mass_weights)
             if config.positive_mass == "mode_gamma_tree" else None
+        ),
+        # mpc_soft only: how the objective mass splits between the windows the
+        # best-of-N controller actually executed and the sibling candidates
+        # this mode exists to expose; None for the other modes.
+        "positive_mass_chosen_vs_sibling": (
+            _chosen_sibling_masses(positives, mass_weights)
+            if config.positive_mass == "mpc_soft" else None
         ),
         "sample_order": (
             "E deterministic reshuffled complete passes over D+; each D+ row "
