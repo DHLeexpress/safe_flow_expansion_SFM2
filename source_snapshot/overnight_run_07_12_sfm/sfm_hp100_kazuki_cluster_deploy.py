@@ -234,7 +234,11 @@ def row_from_rollout(rollout, *, gamma, scene_profile, modules, seconds):
 # --------------------------------------------------------------------------
 # one gamma cell
 # --------------------------------------------------------------------------
-@torch.no_grad()
+# NOTE: no ``torch.no_grad`` anywhere below.  The locked comparator's ODE
+# guidance differentiates the goal and CBF rewards through the sampled
+# window (``torch.autograd.grad`` inside ``sfm_kazuki.guided_generate``), so
+# the reference evaluator ``sfm_hp100_kazuki_eval`` also runs with grad mode
+# enabled.  Disabling it makes the guidance raise.
 def run_cell(policy, *, gamma, scene_profile, episode_ids, device, modules,
              sample_seed, T, progress_every=10):
     KZ = modules["KZ"]
@@ -306,7 +310,6 @@ def summarize_cell(rows) -> dict:
 # --------------------------------------------------------------------------
 # gamma-invariance probe
 # --------------------------------------------------------------------------
-@torch.no_grad()
 def gamma_invariance_check(policy, *, episodes, gammas, scene_profile, device,
                            modules, sample_seed, T):
     """Same episodes and seeds, two gammas: how far do the states drift apart?"""
