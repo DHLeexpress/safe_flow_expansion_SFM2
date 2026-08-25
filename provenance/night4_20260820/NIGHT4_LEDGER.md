@@ -152,10 +152,34 @@ that joins r1+r2 manifests fails closed (N4A3 survived because it used r2
 only).  Remedy for future combined runs: drop r2_gpu0 blocks 0000-0003
 (or re-collect them at a disjoint ep0).
 
-## Status & open items
+## Night-6 (2026-08-23/25): official N16 match + last weight-space volley
 
-- N4A2_s12500 is now M100-confirmed on the declared untouched banks (the
-  protocol's final evaluation), in addition to fresh-M50 certification.
+P1 — sealed-M100 official match, best-of-16 MPC-select (controller-mode,
+Validity not computed; results $OUT/bestofN_m100_official/, banks/seeds
+bit-identical across runs, checkpoint shas triple-verified):
+
+| controller | samples/step | OOD CR (940000) | ID CR (950000) |
+| --- | --- | --- | --- |
+| plain MPPI | 2048 | .790 | .450 |
+| MPPI-DCBF | 2048 | ~.521 | ~.046 (gamma 0.1 = .000) |
+| champion, 1 sample | 1 | .423 | .034 |
+| **champion + N16** | **16** | **.1457** [.122,.174] | **.0014** (1/700) |
+| RC3 + N16 | 16 | .1557 | .0014 |
+
+Every legacy row beaten on pooled CR at 1/128 the sample budget; ID hits
+the CR<0.10 target (n_star=16).  Honest exception: ID gamma 0.1 cell,
+DCBF .000 vs champion-N16 .010 (RC3-N16 ties .000).  Residual OOD mass:
+gamma 0.4/0.5 (.19/.20) and a gamma 0.1 timeout spike (TO .30).
+
+P3 — exact-verified multi-candidate soft-cost distillation (5.42M
+candidates verified, 89.7% valid, tau 17.72, 2.2M-row archives
+$OUT/night6/soft_r1_gpu{0,3}.pt; new positive_mass=mpc_soft, commits
+bde8639/5f5d172) plus the ep0-repaired data arms:
+N5S1_s15000 M20 .329/.720 (ties champion CR, lower Val, U-shaped dose
+curve — re-conservatism), N5D1R .343/.741 (best Validity, worse CR),
+N5D3R .371.  No arm beats the champion on both axes; no M50 spent.
+This is the fourth independent convergence of the single-sample
+weight-space wall (M20 .32-.33); the champion stands.
 - Epilogue in flight: best-of-N calibration of N4A2_12500 on the standard
   M20 bank/seeds (comparable to the r0/RC3 sweep), and an update-seed-3
   replication of the A2 recipe with its own M20 screen.
